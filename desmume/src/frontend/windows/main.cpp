@@ -1965,6 +1965,8 @@ slock_t *display_mutex = NULL;
 sthread_t *display_thread = NULL;
 volatile bool display_die = false;
 HANDLE display_wakeup_event = INVALID_HANDLE_VALUE;
+HANDLE display_done_event = INVALID_HANDLE_VALUE;
+DWORD display_done_timeout = 500;
 
 int displayPostponeType = 0;
 DWORD displayPostponeUntil = ~0;
@@ -2112,7 +2114,7 @@ void displayThread(void *arg)
 		}
 		
 		displayProc();
-
+		SetEvent(display_done_event);
 	} while (!display_die);
 }
 
@@ -2289,6 +2291,8 @@ static void StepRunLoop_User()
 	Hud.fps = mainLoopData.fps;
 	Hud.fps3d = GPU->GetFPSRender3D();
 
+	// wait for the HUD to update from last frame
+	if(frameskiprate==0) WaitForSingleObject(display_done_event, display_done_timeout);
 	Display();
 
 	mainLoopData.fps3d = Hud.fps3d;
@@ -2689,7 +2693,11 @@ static void ExitRunLoop()
 	emu_halt(EMUHALT_REASON_USER_REQUESTED_HALT, NDSErrorTag_None);
 }
 
-class WinWifiHandler : public WifiHandler
+//-----------------------------------------------------------------------------
+//   Platform driver for Win32
+//-----------------------------------------------------------------------------
+
+class WinDriver : public BaseDriver
 {
 #ifdef EXPERIMENTAL_WIFI_COMM
 	virtual bool WIFI_SocketsAvailable() { return bSocketsAvailable; }
@@ -2750,7 +2758,7 @@ class WinWifiHandler : public WifiHandler
 			"Do you still want to connect?",
 			"DeSmuME - WFC warning",
 			MB_YESNO | MB_DEFBUTTON2 | MB_ICONWARNING
-			) == IDYES;
+		) == IDYES;
 	}
 
 	virtual int PCAP_findalldevs(pcap_if_t** alldevs, char* errbuf) {
@@ -2781,14 +2789,7 @@ class WinWifiHandler : public WifiHandler
 		return _pcap_dispatch(dev, num, callback, userdata);
 	}
 #endif
-};
 
-//-----------------------------------------------------------------------------
-//   Platform driver for Win32
-//-----------------------------------------------------------------------------
-
-class WinDriver : public BaseDriver
-{
 	virtual bool AVI_IsRecording()
 	{
 		return ::AVI_IsRecording();
@@ -2982,7 +2983,6 @@ int _main()
 #endif
 
 	driver = new WinDriver();
-	CurrentWifiHandler = new WinWifiHandler();
 	WinGPUEvent = new GPUEventHandlerWindows;
 
 	InitializeCriticalSection(&win_execute_sync);
@@ -2991,6 +2991,7 @@ int _main()
 	display_invoke_ready_event = CreateEvent(NULL, TRUE, FALSE, NULL);
 	display_invoke_done_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	display_wakeup_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	display_done_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 //	struct configured_features my_config;
 
@@ -4477,6 +4478,9 @@ void FilterUpdate(HWND hwnd, bool user)
 	SetRotate(hwnd, video.rotation, false);
 	if(user && windowSize==0) {}
 	else ScaleScreen(windowSize, false);
+	if (romloaded)
+		Display();
+
 	WritePrivateProfileInt("Video", "Filter", video.currentfilter, IniName);
 	WritePrivateProfileInt("Video", "Width", video.width, IniName);
 	WritePrivateProfileInt("Video", "Height", video.height, IniName);
@@ -6992,7 +6996,7 @@ LRESULT CALLBACK WifiSettingsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 			if (bWinPCapAvailable)
 			{
-				if(CurrentWifiHandler->PCAP_findalldevs(&alldevs, errbuf) == -1)
+				if(driver->PCAP_findalldevs(&alldevs, errbuf) == -1)
 				{
 					// TODO: fail more gracefully!
 					EndDialog(hDlg, TRUE);
