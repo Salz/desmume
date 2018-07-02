@@ -1010,7 +1010,7 @@ template<int procnum, int num> struct TSequenceItem_Timer : public TSequenceItem
 				}
 #ifndef NDEBUG
 				if(ctr>1) {
-					printf("yikes!!!!! please report!\n");
+					printf("yikes!!!!! please report! (ctr=%d)\n", ctr);
 				}
 #endif
 			}
