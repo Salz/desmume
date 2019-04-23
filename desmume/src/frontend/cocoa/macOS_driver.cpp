@@ -15,8 +15,12 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <unistd.h>
+
 #include "macOS_driver.h"
+#include "ClientAVCaptureObject.h"
 #include "ClientExecutionControl.h"
+
 
 pthread_mutex_t* macOS_driver::GetCoreThreadMutexLock()
 {
@@ -52,7 +56,7 @@ void macOS_driver::AVI_SoundUpdate(void *soundData, int soundLen)
 		return;
 	}
 	
-	avCaptureObject->ReadAudioFrames(soundData, soundLen);
+	avCaptureObject->CaptureAudioFrames(soundData, soundLen);
 }
 
 bool macOS_driver::AVI_IsRecording()

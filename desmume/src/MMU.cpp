@@ -923,7 +923,6 @@ void MMU_Init(void)
 
 	mc_init(&MMU.fw, MC_TYPE_FLASH);  /* init fw device */
 	mc_alloc(&MMU.fw, NDS_FW_SIZE_V1);
-	MMU.fw.fp = NULL;
 	MMU.fw.isFirmware = true;
 
 	rtcInit();
@@ -939,9 +938,7 @@ void MMU_Init(void)
 
 void MMU_DeInit(void) {
 	LOG("MMU deinit\n");
-	if (MMU.fw.fp)
-		fclose(MMU.fw.fp);
-	mc_free(&MMU.fw);      
+	mc_free(&MMU.fw);
 
 	slot1_Shutdown();
 	slot2_Shutdown();
@@ -1820,7 +1817,13 @@ static void writereg_POWCNT1(const int size, const u32 adr, const u32 val)
 	if(wasGeomEnabled && !isGeomEnabled)
 	{
 		//kill the geometry data when the power goes off
+		//but save these tables, first. they shouldnt be cleared.
+		//so, so bad. we need to model this with hardware-like operations instead of c++ code
+		GFX3D_State prior = gfx3d.state;
 		reconstruct(&gfx3d.state);
+		memcpy(gfx3d.state.u16ToonTable, prior.u16ToonTable, sizeof(prior.u16ToonTable));
+		//dont think we should save this one: it's sent with 3d commands, not random bonus immediate register writes like the toon table
+		//memcpy(gfx3d.state.shininessTable, prior.shininessTable, sizeof(prior.shininessTable)); 
 	}
 }
 
@@ -5210,7 +5213,7 @@ void FASTCALL _MMU_ARM7_write08(u32 adr, u8 val)
 				if (NDS_ARM7.instruct_adr > 0x3FFF) return;
 #ifdef HAVE_JIT
 				// hack for firmware boot in JIT mode
-				if (CommonSettings.UseExtFirmware && CommonSettings.BootFromFirmware && firmware->loaded() && val == 1)
+				if (CommonSettings.UseExtFirmware && CommonSettings.BootFromFirmware && extFirmwareObj->loaded() && val == 1)
 					CommonSettings.jit_max_block_size = saveBlockSizeJIT;
 #endif
 				break;
@@ -5315,7 +5318,11 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 		case REG_DISPA_VCOUNT:
 			if (nds.VCount >= 202 && nds.VCount <= 212)
 			{
-				printf("VCOUNT set to %i (previous value %i)\n", val, nds.VCount);
+				if (val != nds.VCount)
+				{
+					printf("VCOUNT set to %i (previous value %i)\n", val, nds.VCount);
+				}
+				
 				nds.VCount = val;
 			}
 			else

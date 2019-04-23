@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2006 yopyop
-	Copyright (C) 2008-2017 DeSmuME team
+	Copyright (C) 2008-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@ struct SCustomKeys
 #ifdef HAVE_JIT
 	SCustomKey CpuMode, JitBlockSizeDec, JitBlockSizeInc;
 #endif
-	SCustomKey FrameAdvance, FastForward, FastForwardToggle, IncreaseSpeed, DecreaseSpeed, FrameLimitToggle, Microphone, IncreasePressure, DecreasePressure;
+	SCustomKey FrameAdvance, FastForward, FastForwardToggle, IncreaseSpeed, DecreaseSpeed, FrameLimitToggle, Microphone, PrevSample, NextSample, IncreasePressure, DecreasePressure;
 
 	SCustomKey PlayMovie, RecordMovie, StopMovie, ToggleReadOnly;
 	
@@ -92,8 +92,6 @@ struct SCustomKeys
 
 	SCustomKey RecordWAV, RecordAVI;
 
-	SCustomKey NewLuaScript, CloseLuaScripts, MostRecentLuaScript;
-
 	SCustomKey ToggleFrameCounter;
 	SCustomKey ToggleFPS;
 	SCustomKey ToggleInput;
@@ -102,9 +100,16 @@ struct SCustomKeys
 	SCustomKey StylusAutoHold;
 	SCustomKey LCDsMode;
 	SCustomKey LCDsSwap;
-	SCustomKey SearchCheats;
-	SCustomKey IncreaseVolume;
-	SCustomKey DecreaseVolume;
+
+	SCustomKey ListCheats, SearchCheats, ToggleCheats;
+
+	SCustomKey NewLuaScript, CloseLuaScripts, MostRecentLuaScript;
+
+	SCustomKey IncreaseVolume, DecreaseVolume;
+
+	SCustomKey ToggleMainGPU, ToggleMainBG0Layer, ToggleMainBG1Layer, ToggleMainBG2Layer, ToggleMainBG3Layer, ToggleMainOBJLayer;
+	SCustomKey ToggleSubGPU, ToggleSubBG0Layer, ToggleSubBG1Layer, ToggleSubBG2Layer, ToggleSubBG3Layer, ToggleSubOBJLayer;
+
 	SCustomKey LastItem; // dummy, must be last
 
 	//--methods--

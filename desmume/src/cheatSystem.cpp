@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2009-2017 DeSmuME team
+	Copyright (C) 2009-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -26,6 +26,8 @@
 #ifndef _MSC_VER 
 #include <stdint.h>
 #endif
+
+static const char hexValid[23] = {"0123456789ABCDEFabcdef"};
 
 CHEATS *cheats = NULL;
 CHEATSEARCH *cheatSearch = NULL;
@@ -71,6 +73,22 @@ BOOL CHEATS::update(u8 size, u32 address, u32 val, char *description, BOOL enabl
 	this->setDescription(description, pos);
 	list[pos].enabled = enabled;
 	return TRUE;
+}
+
+BOOL CHEATS::move(u32 srcPos, u32 dstPos)
+{
+	if (srcPos >= list.size() || dstPos > list.size()) return false;
+	if (srcPos < 0 || dstPos < 0) return false;
+
+	// get the item to move
+	CHEATS_LIST srcCheat = list[srcPos];
+	// insert item in the new position
+	list.insert(list.begin() + dstPos, srcCheat);
+	// remove the original item
+	if (dstPos < srcPos) srcPos++;
+	list.erase(list.begin() + srcPos);
+
+	return true;
 }
 
 #define CHEATLOG(...) 
@@ -1021,7 +1039,10 @@ void CHEATS::process(int targetType)
 	if(cheatsResetJit)
 	{
 		if(CommonSettings.use_jit)
-			arm_jit_reset(true,true);
+		{
+			printf("Cheat code operation potentially not compatible with JIT operations. Resetting JIT...\n");
+			arm_jit_reset(true, true);
+		}
 	}
 #endif
 }

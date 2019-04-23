@@ -1,6 +1,6 @@
 /*  
 	Copyright (C) 2006-2007 shash
-	Copyright (C) 2007-2018 DeSmuME team
+	Copyright (C) 2007-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -34,7 +34,11 @@
 #endif
 
 #ifdef ENABLE_SSE4_1
-#include "smmintrin.h"
+#include <smmintrin.h>
+#endif
+
+#ifdef ENABLE_AVX
+#include <immintrin.h>
 #endif
 
 enum MatrixMode
@@ -65,15 +69,15 @@ void MatrixSet(s32 (&mtx)[16], const size_t x, const size_t y, const s32 value);
 void MatrixSet(float (&mtx)[16], const size_t x, const size_t y, const float value);
 void MatrixSet(float (&mtx)[16], const size_t x, const size_t y, const s32 value);
 
-void MatrixCopy(s32 (&mtxDst)[16], const s32 (&mtxSrc)[16]);
-void MatrixCopy(float (&mtxDst)[16], const float (&mtxSrc)[16]);
+void MatrixCopy(s32 (&__restrict mtxDst)[16], const s32 (&__restrict mtxSrc)[16]);
+void MatrixCopy(float (&__restrict mtxDst)[16], const float (&__restrict mtxSrc)[16]);
 void MatrixCopy(float (&__restrict mtxDst)[16], const s32 (&__restrict mtxSrc)[16]);
 
-int MatrixCompare(const s32 (&mtxDst)[16], const s32 (&mtxSrc)[16]);
-int MatrixCompare(const float (&mtxDst)[16], const float (&mtxSrc)[16]);
+int MatrixCompare(const s32 (&__restrict mtxDst)[16], const s32 (&__restrict mtxSrc)[16]);
+int MatrixCompare(const float (&__restrict mtxDst)[16], const float (&__restrict mtxSrc)[16]);
 
-s32	MatrixGetMultipliedIndex(const u32 index, const s32 (&mtxA)[16], const s32 (&mtxB)[16]);
-float MatrixGetMultipliedIndex(const u32 index, const float (&mtxA)[16], const float (&mtxB)[16]);
+s32	MatrixGetMultipliedIndex(const u32 index, const s32 (&__restrict mtxA)[16], const s32 (&__restrict mtxB)[16]);
+float MatrixGetMultipliedIndex(const u32 index, const float (&__restrict mtxA)[16], const float (&__restrict mtxB)[16]);
 
 template<MatrixMode MODE> void MatrixStackInit(MatrixStack<MODE> *stack);
 template<MatrixMode MODE> s32* MatrixStackGet(MatrixStack<MODE> *stack);
@@ -147,9 +151,15 @@ FORCEINLINE s32 s32floor(double d)
 	return s32floor((float)d);
 }
 
+FORCEINLINE s32 sfx32_shiftdown(const s64 a)
+{
+	//TODO: replace me with direct calls to sfx32_shiftdown
+	return fx32_shiftdown(a);
+}
+
 // SIMD Functions
 //-------------
-#if defined(ENABLE_AVX2)
+#if defined(ENABLE_AVX)
 
 static void memset_u16(void *dst, const u16 val, const size_t elementCount)
 {

@@ -26,6 +26,7 @@
 #import "cocoa_util.h"
 
 #include "macOS_driver.h"
+#include "ClientAVCaptureObject.h"
 #include "ClientExecutionControl.h"
 #include "ClientInputHandler.h"
 
@@ -83,6 +84,9 @@ volatile bool execute = true;
 @synthesize frameStatus;
 @synthesize executionSpeedStatus;
 @synthesize errorStatus;
+@synthesize extFirmwareMACAddressString;
+@synthesize firmwareMACAddressSelectionString;
+@synthesize currentSessionMACAddressString;
 
 @dynamic arm9ImageURL;
 @dynamic arm7ImageURL;
@@ -120,8 +124,7 @@ volatile bool execute = true;
 	ClientInputHandler *inputHandler = [cdsController inputHandler];
 	inputHandler->SetClientExecutionController(execControl);
 	execControl->SetClientInputHandler(inputHandler);
-	
-	slot1StatusText = NSSTRING_STATUS_EMULATION_NOT_RUNNING;
+	execControl->SetWifiEmulationMode(WifiEmulationLevel_Off);
 	
 	spinlockMasterExecute = OS_SPINLOCK_INIT;
 	spinlockCdsController = OS_SPINLOCK_INIT;
@@ -132,7 +135,6 @@ volatile bool execute = true;
 	pthread_mutex_init(&threadParam.mutexThreadExecute, NULL);
 	pthread_cond_init(&threadParam.condThreadExecute, NULL);
 	pthread_rwlock_init(&threadParam.rwlockCoreExecute, NULL);
-	pthread_create(&coreThread, NULL, &RunCoreThread, &threadParam);
 	
 	// The core emulation thread needs max priority since it is the sole
 	// producer thread for all output threads. Note that this is not being
@@ -146,12 +148,18 @@ volatile bool execute = true;
 	// lot of CPU time under certain conditions, which may interfere with
 	// other threads. (Example: Video tearing on display windows, even with
 	// V-sync enabled.)
+	
+	pthread_attr_t threadAttr;
+	pthread_attr_init(&threadAttr);
+	pthread_attr_setschedpolicy(&threadAttr, SCHED_RR);
+	
 	struct sched_param sp;
-	int thePolicy = 0;
 	memset(&sp, 0, sizeof(struct sched_param));
-	pthread_getschedparam(coreThread, &thePolicy, &sp);
-	sp.sched_priority = sched_get_priority_max(thePolicy);
-	pthread_setschedparam(coreThread, thePolicy, &sp);
+	sp.sched_priority = 42;
+	pthread_attr_setschedparam(&threadAttr, &sp);
+	
+	pthread_create(&coreThread, &threadAttr, &RunCoreThread, &threadParam);
+	pthread_attr_destroy(&threadAttr);
 	
 	[cdsGPU setOutputList:cdsOutputList rwlock:&threadParam.rwlockOutputList];
 	
@@ -164,6 +172,10 @@ volatile bool execute = true;
 	frameStatus = @"---";
 	executionSpeedStatus = @"1.00x";
 	errorStatus = @"";
+	slot1StatusText = NSSTRING_STATUS_EMULATION_NOT_RUNNING;
+	extFirmwareMACAddressString = @"Invalid MAC!";
+	firmwareMACAddressSelectionString = @"Firmware  00:09:BF:FF:FF:FF";
+	currentSessionMACAddressString = NSSTRING_STATUS_NO_ROM_LOADED;
 	
 	return self;
 }
@@ -181,6 +193,9 @@ volatile bool execute = true;
 	[self setCdsGPU:nil];
 	[self setCdsOutputList:nil];
 	[self setErrorStatus:nil];
+	[self setExtFirmwareMACAddressString:nil];
+	[self setFirmwareMACAddressSelectionString:nil];
+	[self setCurrentSessionMACAddressString:nil];
 	
 	pthread_cancel(coreThread);
 	pthread_join(coreThread, NULL);
@@ -433,6 +448,7 @@ volatile bool execute = true;
 - (void) setEmuFlagUseExternalBios:(BOOL)enable
 {
 	execControl->SetEnableExternalBIOS((enable) ? true : false);
+	[self updateFirmwareMACAddressString];
 }
 
 - (BOOL) emuFlagUseExternalBios
@@ -466,6 +482,25 @@ volatile bool execute = true;
 - (void) setEmuFlagUseExternalFirmware:(BOOL)enable
 {
 	execControl->SetEnableExternalFirmware((enable) ? true : false);
+	
+	if (enable)
+	{
+		uint8_t MACAddr[6] = {0x00, 0x09, 0xBF, 0xFF, 0xFF, 0xFF};
+		const char *extFirmwareFileName = execControl->GetFirmwareImagePath();
+		bool isFirmwareFileRead = NDS_ReadFirmwareDataFromFile(extFirmwareFileName, NULL, NULL, NULL, MACAddr);
+		
+		if (isFirmwareFileRead)
+		{
+			NSString *macAddressString = [NSString stringWithFormat:@"%02X:%02X:%02X:%02X:%02X:%02X", MACAddr[0], MACAddr[1], MACAddr[2], MACAddr[3], MACAddr[4], MACAddr[5]];
+			[self setExtFirmwareMACAddressString:macAddressString];
+		}
+		else
+		{
+			[self setExtFirmwareMACAddressString:@"Invalid MAC!"];
+		}
+	}
+	
+	[self updateFirmwareMACAddressString];
 }
 
 - (BOOL) emuFlagUseExternalFirmware
@@ -707,9 +742,42 @@ volatile bool execute = true;
 	return [NSURL fileURLWithPath:[NSString stringWithCString:filePath encoding:NSUTF8StringEncoding]];
 }
 
+- (void) updateFirmwareMACAddressString
+{
+	if ([self emuFlagUseExternalBios] && [self emuFlagUseExternalFirmware])
+	{
+		[self setFirmwareMACAddressSelectionString:[NSString stringWithFormat:@"Ext. Firmware  %@", [self extFirmwareMACAddressString]]];
+	}
+	else
+	{
+		[self setFirmwareMACAddressSelectionString:[NSString stringWithFormat:@"Firmware  %@", [[self cdsFirmware] firmwareMACAddressString]]];
+	}
+}
+
+- (void) updateCurrentSessionMACAddressString:(BOOL)isRomLoaded
+{
+	if (isRomLoaded)
+	{
+		const uint8_t *MACAddress = execControl->GetCurrentSessionMACAddress();
+		NSString *MACAddressString = [NSString stringWithFormat:@"%02X:%02X:%02X:%02X:%02X:%02X",
+									  MACAddress[0], MACAddress[1], MACAddress[2], MACAddress[3], MACAddress[4], MACAddress[5]];
+		[self setCurrentSessionMACAddressString:MACAddressString];
+	}
+	else
+	{
+		[self setCurrentSessionMACAddressString:NSSTRING_STATUS_NO_ROM_LOADED];
+	}
+}
+
 - (pthread_rwlock_t *) rwlockCoreExecute
 {
 	return &threadParam.rwlockCoreExecute;
+}
+
+- (void) generateFirmwareMACAddress
+{
+	[[self cdsFirmware] generateRandomFirmwareMACAddress];
+	[self updateFirmwareMACAddressString];
 }
 
 - (BOOL) isSlot1Ejected
@@ -787,12 +855,19 @@ volatile bool execute = true;
 {
 	[self setCoreState:ExecutionBehavior_Pause];
 	
+	if (![self emuFlagUseExternalBios] || ![self emuFlagUseExternalFirmware])
+	{
+		[[self cdsFirmware] writeUserDefaultWFCUserID];
+		[[self cdsFirmware] updateFirmwareConfigSessionValues];
+	}
+	
 	pthread_mutex_lock(&threadParam.mutexThreadExecute);
 	execControl->ApplySettingsOnReset();
 	NDS_Reset();
 	pthread_mutex_unlock(&threadParam.mutexThreadExecute);
 	
 	[self updateSlot1DeviceStatus];
+	[self updateCurrentSessionMACAddressString:YES];
 	[self setMasterExecute:YES];
 	[self restoreCoreState];
 	[[self cdsController] reset];
@@ -919,7 +994,7 @@ volatile bool execute = true;
 								dateSecond,
 								dateMillisecond);
 	
-	FCEUI_SaveMovie(fileName, L"Test Author", 0, sramPath, rtcDate);
+	FCEUI_SaveMovie(fileName, L"Test Author", START_BLANK, sramPath, rtcDate);
 	
 	return YES;
 }
@@ -1050,10 +1125,17 @@ static void* RunCoreThread(void *arg)
 	double frameTime = 0.0; // The amount of time that is expected for the frame to run.
 	
 	const double standardNDSFrameTime = execControl->CalculateFrameAbsoluteTime(1.0);
+	double lastSelectedExecSpeedSelected = 1.0;
 	double executionSpeedAverage = 0.0;
 	double executionSpeedAverageFramesCollected = 0.0;
+	double executionWaitBias = 1.0;
+	double lastExecutionWaitBias = 1.0;
+	double lastExecutionSpeedDifference = 0.0;
+	bool needRestoreExecutionWaitBias = false;
+	bool lastExecutionSpeedLimitEnable = execControl->GetEnableSpeedLimiter();
 	
 	ExecutionBehavior behavior = ExecutionBehavior_Pause;
+	ExecutionBehavior lastBehavior = ExecutionBehavior_Pause;
 	uint64_t frameJumpTarget = 0;
 	
 	[[[cdsCore cdsGPU] sharedData] semaphoreFramebufferCreate];
@@ -1073,6 +1155,21 @@ static void* RunCoreThread(void *arg)
 			startTime = execControl->GetCurrentAbsoluteTime();
 			execControl->ApplySettingsOnExecutionLoopStart();
 			behavior = execControl->GetExecutionBehaviorApplied();
+		}
+		
+		if ( (lastBehavior == ExecutionBehavior_Run) && (behavior != ExecutionBehavior_Run) )
+		{
+			lastExecutionWaitBias = executionWaitBias;
+			needRestoreExecutionWaitBias = true;
+		}
+		
+		if ( (behavior == ExecutionBehavior_Run) && lastExecutionSpeedLimitEnable && !execControl->GetEnableSpeedLimiter() )
+		{
+			lastExecutionWaitBias = executionWaitBias;
+		}
+		else if ( (behavior == ExecutionBehavior_Run) && !lastExecutionSpeedLimitEnable && execControl->GetEnableSpeedLimiter() )
+		{
+			needRestoreExecutionWaitBias = true;
 		}
 		
 		frameTime = execControl->GetFrameTime();
@@ -1113,7 +1210,7 @@ static void* RunCoreThread(void *arg)
 			continue;
 		}
 		
-		if (avCaptureObject != NULL)
+		if ( (avCaptureObject != NULL) && !avCaptureObject->IsCapturingVideo() )
 		{
 			avCaptureObject->StreamWriteStart();
 		}
@@ -1134,7 +1231,39 @@ static void* RunCoreThread(void *arg)
 			{
 				if (executionSpeedAverageFramesCollected > 0.0001)
 				{
-					execControl->SetFrameInfoExecutionSpeed((executionSpeedAverage / executionSpeedAverageFramesCollected) * 100.0);
+					const double execSpeedSelected = execControl->GetExecutionSpeedApplied();
+					const double execSpeedCurrent = (executionSpeedAverage / executionSpeedAverageFramesCollected);
+					const double execSpeedDifference = execSpeedSelected - execSpeedCurrent;
+					
+					execControl->SetFrameInfoExecutionSpeed(execSpeedCurrent * 100.0);
+					
+					if ( (behavior == ExecutionBehavior_Run) && needRestoreExecutionWaitBias )
+					{
+						executionWaitBias = lastExecutionWaitBias;
+						needRestoreExecutionWaitBias = false;
+					}
+					else
+					{
+						if (lastSelectedExecSpeedSelected == execSpeedSelected)
+						{
+							executionWaitBias -= execSpeedDifference;
+							lastExecutionSpeedDifference = execSpeedDifference;
+							
+							if (executionWaitBias < EXECUTION_WAIT_BIAS_MIN)
+							{
+								executionWaitBias = EXECUTION_WAIT_BIAS_MIN;
+							}
+							else if (executionWaitBias > EXECUTION_WAIT_BIAS_MAX)
+							{
+								executionWaitBias = EXECUTION_WAIT_BIAS_MAX;
+							}
+						}
+						else
+						{
+							executionWaitBias = 1.0;
+							lastSelectedExecSpeedSelected = execSpeedSelected;
+						}
+					}
 				}
 				
 				executionSpeedAverage = 0.0;
@@ -1181,7 +1310,7 @@ static void* RunCoreThread(void *arg)
 		{
 			case ExecutionBehavior_Run:
 			{
-				if (execControl->GetEnableFrameSkipApplied())
+				if (execControl->GetEnableFrameSkipApplied() && !avCaptureObject)
 				{
 					if (framesToSkip > 0)
 					{
@@ -1190,7 +1319,8 @@ static void* RunCoreThread(void *arg)
 					}
 					else
 					{
-						execControl->SetFramesToSkip( execControl->CalculateFrameSkip(startTime, frameTime) );
+						const double frameTimeBias = (lastExecutionSpeedDifference > 0.0) ? 1.0 - lastExecutionSpeedDifference : 1.0;
+						execControl->SetFramesToSkip( execControl->CalculateFrameSkip(startTime, frameTime * frameTimeBias) );
 					}
 				}
 				break;
@@ -1198,14 +1328,17 @@ static void* RunCoreThread(void *arg)
 			
 			case ExecutionBehavior_FrameJump:
 			{
-				if (framesToSkip > 0)
+				if (!avCaptureObject)
 				{
-					NDS_SkipNextFrame();
-					execControl->SetFramesToSkip(framesToSkip - 1);
-				}
-				else
-				{
-					execControl->SetFramesToSkip( (uint8_t)((DS_FRAMES_PER_SECOND * 1.0) + 0.85) );
+					if (framesToSkip > 0)
+					{
+						NDS_SkipNextFrame();
+						execControl->SetFramesToSkip(framesToSkip - 1);
+					}
+					else
+					{
+						execControl->SetFramesToSkip( (uint8_t)((DS_FRAMES_PER_SECOND * 1.0) + 0.85) );
+					}
 				}
 				break;
 			}
@@ -1236,9 +1369,14 @@ static void* RunCoreThread(void *arg)
 		else
 		{
 			// If there is any time left in the loop, go ahead and pad it.
-			if ( (execControl->GetCurrentAbsoluteTime() - startTime) < frameTime )
+			const double biasedFrameTime = frameTime * executionWaitBias;
+			
+			if (biasedFrameTime > 0.0)
 			{
-				execControl->WaitUntilAbsoluteTime(startTime + frameTime);
+				if ( (execControl->GetCurrentAbsoluteTime() - startTime) < frameTime )
+				{
+					execControl->WaitUntilAbsoluteTime(startTime + biasedFrameTime);
+				}
 			}
 		}
 		
@@ -1246,6 +1384,8 @@ static void* RunCoreThread(void *arg)
 		const double currentExecutionSpeed = standardNDSFrameTime / (endTime - startTime);
 		executionSpeedAverage += currentExecutionSpeed;
 		executionSpeedAverageFramesCollected += 1.0;
+		lastBehavior = behavior;
+		lastExecutionSpeedLimitEnable = execControl->GetEnableSpeedLimiterApplied();
 		
 	} while(true);
 	
