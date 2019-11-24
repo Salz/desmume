@@ -1165,8 +1165,8 @@ void NDSTextureUnpack4x4(const size_t srcSize, const u32 *__restrict srcData, co
 	
 	for (size_t y = 0, d = 0; y < yTmpSize; y++)
 	{
-		u32 tmpPos[4]={(y<<2)*sizeX,((y<<2)+1)*sizeX,
-			((y<<2)+2)*sizeX,((y<<2)+3)*sizeX};
+		u32 tmpPos[4]={(u32)((y<<2)*sizeX),(u32)(((y<<2)+1)*sizeX),
+			(u32)(((y<<2)+2)*sizeX),(u32)(((y<<2)+3)*sizeX)};
 		for (size_t x = 0; x < xTmpSize; x++, d++)
 		{
 			if (d >= limit)
