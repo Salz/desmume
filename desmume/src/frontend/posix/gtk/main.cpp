@@ -789,10 +789,9 @@ void *
 createThread_gdb( void (*thread_function)( void *data),
                   void *thread_data)
 {
-  GThread *new_thread = g_thread_create( (GThreadFunc)thread_function,
-                                         thread_data,
-                                         TRUE,
-                                         NULL);
+  GThread *new_thread = g_thread_new(NULL,
+                                     (GThreadFunc)thread_function,
+                                     thread_data);
 
   return new_thread;
 }
@@ -899,6 +898,9 @@ static void ToggleFullscreen(GtkToggleAction *action)
   config.window_fullscreen = gtk_toggle_action_get_active(action);
   if (config.window_fullscreen)
   {
+    GdkColor black = {0, 0, 0, 0};
+    gtk_widget_modify_bg(pDrawingArea, GTK_STATE_NORMAL, &black);
+
     gtk_widget_hide(pMenuBar);
     gtk_widget_hide(pToolBar);
     gtk_widget_hide(pStatusBar);
@@ -909,6 +911,8 @@ static void ToggleFullscreen(GtkToggleAction *action)
   }
   else
   {
+    gtk_widget_modify_bg(pDrawingArea, GTK_STATE_NORMAL, NULL);
+
     if (config.view_menu) {
       gtk_widget_show(pMenuBar);
     }
@@ -3606,10 +3610,6 @@ int main (int argc, char *argv[])
     {
       fprintf(stderr, "Warning: X11 not thread-safe\n");
     }
-
-#if !g_thread_supported()
-    g_thread_init( NULL);
-#endif
 
   gtk_init(&argc, &argv);
 
