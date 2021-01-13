@@ -193,860 +193,6 @@ static void JITMaxBlockSizeChanged(GtkAdjustment* adj,void *);
 #endif
 static void GraphicsSettingsDialog(GSimpleAction *action, GVariant *parameter, gpointer user_data);
 
-static const char *menu_builder =
-"<?xml version='1.0' encoding='UTF-8'?>"
-"<interface>"
-"  <menu id='menubar'>"
-"    <submenu>"
-"      <attribute name='label' translatable='yes'>_File</attribute>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Open</attribute>"
-"          <attribute name='action'>app.open</attribute>"
-"          <attribute name='accel'>&lt;Control&gt;o</attribute>"
-"        </item>"
-"        <submenu id='open_recent'>"
-"          <attribute name='label' translatable='yes'>Open _recent</attribute>"
-"        </submenu>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Run</attribute>"
-"          <attribute name='action'>app.run</attribute>"
-"          <attribute name='accel'>Pause</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Pause</attribute>"
-"          <attribute name='action'>app.pause</attribute>"
-"          <attribute name='accel'>Pause</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Re_set</attribute>"
-"          <attribute name='action'>app.reset</attribute>"
-"        </item>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Save state _to…</attribute>"
-"          <attribute name='action'>app.save_state_to</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Load state _from…</attribute>"
-"          <attribute name='action'>app.load_state_from</attribute>"
-"        </item>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Save state</attribute>"
-"          <section id='savestates'>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>1</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>2</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>3</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>4</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F4</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>5</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_6</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>6</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F6</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_7</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>7</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F7</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_8</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>8</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F8</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_9</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>9</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F9</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>1_0</attribute>"
-"              <attribute name='action'>app.savestate</attribute>"
-"              <attribute name='target' type='u'>0</attribute>"
-"              <attribute name='accel'>&lt;Shift&gt;F10</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Load state</attribute>"
-"          <section id='loadstates'>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>1</attribute>"
-"              <attribute name='accel'>F1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>2</attribute>"
-"              <attribute name='accel'>F2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>3</attribute>"
-"              <attribute name='accel'>F3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>4</attribute>"
-"              <attribute name='accel'>F4</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>5</attribute>"
-"              <attribute name='accel'>F5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_6</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>6</attribute>"
-"              <attribute name='accel'>F6</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_7</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>7</attribute>"
-"              <attribute name='accel'>F7</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_8</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>8</attribute>"
-"              <attribute name='accel'>F8</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_9</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>9</attribute>"
-"              <attribute name='accel'>F9</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>1_0</attribute>"
-"              <attribute name='action'>app.loadstate</attribute>"
-"              <attribute name='target' type='u'>0</attribute>"
-"              <attribute name='accel'>F10</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Import backup memory…</attribute>"
-"          <attribute name='action'>app.importbackup</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Export backup memory…</attribute>"
-"          <attribute name='action'>app.exportbackup</attribute>"
-"        </item>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Record movie _to…</attribute>"
-"          <attribute name='action'>app.record_movie_to</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Play movie _from…</attribute>"
-"          <attribute name='action'>app.play_movie_from</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Stop movie</attribute>"
-"          <attribute name='action'>app.stop_movie</attribute>"
-"        </item>"
-"      </section>"
-"      <section>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>Record _video/audio</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Record lossless H._264 (video only)…</attribute>"
-"              <attribute name='action'>app.record_x264</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Record _FLAC (audio only)…</attribute>"
-"              <attribute name='action'>app.record_flac</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Stop recording</attribute>"
-"              <attribute name='action'>app.stop_recording</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-#ifdef DESMUME_GTK_FIRMWARE_BROKEN
-"        <item>"
-"          <attribute name='label' translatable='yes'>Load Firm_ware file</attribute>"
-"          <attribute name='action'>app.loadfirmware</attribute>"
-"        </item>"
-#endif
-"        <item>"
-"          <attribute name='label' translatable='yes'>Take a screenshot</attribute>"
-"          <attribute name='action'>app.printscreen</attribute>"
-"          <attribute name='accel'>&lt;Control&gt;s</attribute>"
-"        </item>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Quit</attribute>"
-"          <attribute name='action'>app.quit</attribute>"
-"          <attribute name='accel'>&lt;Control&gt;q</attribute>"
-"        </item>"
-"      </section>"
-"    </submenu>"
-"    <submenu>"
-"      <attribute name='label' translatable='yes'>_View</attribute>"
-"      <section>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>LCDs _Layout</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Vertical</attribute>"
-"              <attribute name='action'>app.orient</attribute>"
-"              <attribute name='target'>vertical</attribute>"
-"              <attribute name='accel'>&lt;Control&gt;1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Horizontal</attribute>"
-"              <attribute name='action'>app.orient</attribute>"
-"              <attribute name='target'>horizontal</attribute>"
-"              <attribute name='accel'>&lt;Control&gt;2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Single screen</attribute>"
-"              <attribute name='action'>app.orient</attribute>"
-"              <attribute name='target'>single</attribute>"
-"              <attribute name='accel'>&lt;Control&gt;0</attribute>"
-"            </item>"
-"          </section>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>S_wap screens</attribute>"
-"              <attribute name='action'>app.swapscreens</attribute>"
-"              <attribute name='accel'>space</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Rotation</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_0°</attribute>"
-"              <attribute name='action'>app.rotate</attribute>"
-"              <attribute name='target'>0</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_90°</attribute>"
-"              <attribute name='action'>app.rotate</attribute>"
-"              <attribute name='target'>90</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_180°</attribute>"
-"              <attribute name='action'>app.rotate</attribute>"
-"              <attribute name='target'>180</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_270°</attribute>"
-"              <attribute name='action'>app.rotate</attribute>"
-"              <attribute name='target'>270</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Window Size</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>0_.5×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>0.5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>1.5×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>1.5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>2.5×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>2.5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>4</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5×</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Scale to window</attribute>"
-"              <attribute name='action'>app.winsize</attribute>"
-"              <attribute name='target'>scale</attribute>"
-"            </item>"
-"          </section>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Fullscreen</attribute>"
-"              <attribute name='action'>app.fullscreen</attribute>"
-"              <attribute name='accel'>F11</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Screen _Gap</attribute>"
-"          <attribute name='action'>app.gap</attribute>"
-"        </item>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>Video _Filter</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_None</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>none</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_LQ2X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>lq2x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_LQ2XS</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>lq2xs</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ2X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq2x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ2XS</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq2xs</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ3X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq3x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ3XS</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq3xs</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ4X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq4x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_HQ4XS</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>hq4xs</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2xSaI</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>2xsai</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Super2xSaI</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>super2xsai</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_SuperEagle</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>supereagle</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Scanline</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>scanline</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Bilinear</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>bilinear</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Nearest2X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>nearest2x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Nearest1_5X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>nearest_1point5x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_NearestPlus1_5X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>nearestplus_1point5x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_EPX</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>epx</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_EPXPlus</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>epxplus</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_EPX1_5X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>epx_1point5x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_EPXPlus1_5X</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>epxplus_1point5x</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2xBRZ</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>2xbrz</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3xBRZ</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>3xbrz</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4xBRZ</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>4xbrz</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5xBRZ</attribute>"
-"              <attribute name='action'>app.pri_interpolation</attribute>"
-"              <attribute name='target'>5xbrz</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>S_econdary Video Filter</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Fast</attribute>"
-"              <attribute name='action'>app.interpolation</attribute>"
-"              <attribute name='target'>fast</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Nearest-neighbor</attribute>"
-"              <attribute name='action'>app.interpolation</attribute>"
-"              <attribute name='target'>nearest</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Good</attribute>"
-"              <attribute name='action'>app.interpolation</attribute>"
-"              <attribute name='target'>good</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>B_ilinear</attribute>"
-"              <attribute name='action'>app.interpolation</attribute>"
-"              <attribute name='target'>bilinear</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>B_est</attribute>"
-"              <attribute name='action'>app.interpolation</attribute>"
-"              <attribute name='target'>best</attribute>"
-"            </item>"
-//"            <item>"
-//"              <attribute name='label' translatable='yes'>G_aussian</attribute>"
-//"              <attribute name='action'>app.interpolation</attribute>"
-//"              <attribute name='target'>gaussian</attribute>"
-//"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_HUD</attribute>"
-#ifdef HAVE_LIBAGG
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _fps</attribute>"
-"              <attribute name='action'>app.hud_fps</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _Input</attribute>"
-"              <attribute name='action'>app.hud_input</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _Graphical Input</attribute>"
-"              <attribute name='action'>app.hud_graphicalinput</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display Frame _Counter</attribute>"
-"              <attribute name='action'>app.hud_framecounter</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _Lag Counter</attribute>"
-"              <attribute name='action'>app.hud_lagcounter</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _RTC</attribute>"
-"              <attribute name='action'>app.hud_rtc</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Display _Mic</attribute>"
-"              <attribute name='action'>app.hud_mic</attribute>"
-"            </item>"
-"          </section>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Editor mode</attribute>"
-"              <attribute name='action'>app.hud_editor</attribute>"
-"            </item>"
-"          </section>"
-#else
-"          <item>"
-"            <attribute name='label' translatable='yes'>HUD support not compiled</attribute>"
-"            <attribute name='action'>app.hud_notsupported</attribute>"
-"          </item>"
-#endif
-"        </submenu>"
-"      </section>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Show _menu</attribute>"
-"          <attribute name='action'>app.view_menu</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Show _toolbar</attribute>"
-"          <attribute name='action'>app.view_toolbar</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Show _statusbar</attribute>"
-"          <attribute name='action'>app.view_statusbar</attribute>"
-"        </item>"
-"      </section>"
-"    </submenu>"
-"    <submenu>"
-"      <attribute name='label' translatable='yes'>_Config</attribute>"
-"      <section>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Frameskip</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Limit framerate</attribute>"
-"              <attribute name='action'>app.enablefpslimiter</attribute>"
-"            </item>"
-"          </section>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Auto-minimize skipping</attribute>"
-"              <attribute name='action'>app.frameskipA</attribute>"
-"            </item>"
-"          </section>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_0 (never skip)</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>0</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>4</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>5</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_6</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>6</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_7</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>7</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_8</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>8</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_9</attribute>"
-"              <attribute name='action'>app.frameskip</attribute>"
-"              <attribute name='target'>9</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-#ifdef HAVE_JIT
-"        <item>"
-"          <attribute name='label' translatable='yes'>Em_ulation Settings</attribute>"
-"          <attribute name='action'>app.emulationsettings</attribute>"
-"        </item>"
-#endif
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Graphics settings</attribute>"
-"          <attribute name='action'>app.graphics_settings</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Enable audio</attribute>"
-"          <attribute name='action'>app.enableaudio</attribute>"
-"        </item>"
-#ifdef FAKE_MIC
-"        <item>"
-"          <attribute name='label' translatable='yes'>Fake mic _noise</attribute>"
-"          <attribute name='action'>app.micnoise</attribute>"
-"        </item>"
-#endif
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>Audio _Synchronization</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Dual Asynchronous</attribute>"
-"              <attribute name='action'>app.spu_mode</attribute>"
-"              <attribute name='target'>dual-async</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Synchronous (_N)</attribute>"
-"              <attribute name='action'>app.spu_mode</attribute>"
-"              <attribute name='target'>sync-n</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>Synchronous (_Z)</attribute>"
-"              <attribute name='action'>app.spu_mode</attribute>"
-"              <attribute name='target'>sync-z</attribute>"
-"            </item>"
-#ifdef HAVE_LIBSOUNDTOUCH
-"            <item>"
-"              <attribute name='label' translatable='yes'>Synchronous (_P)</attribute>"
-"              <attribute name='action'>app.spu_mode</attribute>"
-"              <attribute name='target'>sync-p</attribute>"
-"            </item>"
-#endif
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>Audio _Interpolation</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_None</attribute>"
-"              <attribute name='action'>app.spu_interpolation</attribute>"
-"              <attribute name='target'>none</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Linear</attribute>"
-"              <attribute name='action'>app.spu_interpolation</attribute>"
-"              <attribute name='target'>linear</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Cosine</attribute>"
-"              <attribute name='action'>app.spu_interpolation</attribute>"
-"              <attribute name='target'>cosine</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Cheat</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_Search</attribute>"
-"              <attribute name='action'>app.cheatsearch</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_List</attribute>"
-"              <attribute name='action'>app.cheatlist</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>_Saves</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_0 Autodetect</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>autodetect</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1 EEPROM 4kbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>eeprom-4k</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2 EEPROM 64kbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>eeprom-64k</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3 EEPROM 512kbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>eeprom-512k</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4 FRAM 256kbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>fram-256k</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5 FLASH 2mbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>flash-2m</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_6 FLASH 4mbit</attribute>"
-"              <attribute name='action'>app.savetype</attribute>"
-"              <attribute name='target'>flash-4m</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Set audio _volume</attribute>"
-"          <attribute name='action'>app.setaudiovolume</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Set firmware _language</attribute>"
-"          <attribute name='action'>app.setfirmwarelanguage</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_Edit controls</attribute>"
-"          <attribute name='action'>app.editctrls</attribute>"
-"        </item>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>Edit _Joystick controls</attribute>"
-"          <attribute name='action'>app.editjoyctrls</attribute>"
-"        </item>"
-"      </section>"
-"    </submenu>"
-"    <submenu>"
-"      <attribute name='label' translatable='yes'>_Tools</attribute>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_IO regs view</attribute>"
-"          <attribute name='action'>app.ioregs</attribute>"
-"        </item>"
-"        <submenu>"
-"          <attribute name='label' translatable='yes'>View _Layers</attribute>"
-"          <section>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_0 Main BG 0</attribute>"
-"              <attribute name='action'>app.layermainbg0</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_1 Main BG 1</attribute>"
-"              <attribute name='action'>app.layermainbg1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_2 Main BG 2</attribute>"
-"              <attribute name='action'>app.layermainbg2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_3 Main BG 3</attribute>"
-"              <attribute name='action'>app.layermainbg3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_4 Main OBJ</attribute>"
-"              <attribute name='action'>app.layermainobj</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_5 SUB BG 0</attribute>"
-"              <attribute name='action'>app.layersubbg0</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_6 SUB BG 1</attribute>"
-"              <attribute name='action'>app.layersubbg1</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_7 SUB BG 2</attribute>"
-"              <attribute name='action'>app.layersubbg2</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_8 SUB BG 3</attribute>"
-"              <attribute name='action'>app.layersubbg3</attribute>"
-"            </item>"
-"            <item>"
-"              <attribute name='label' translatable='yes'>_9 SUB OBJ</attribute>"
-"              <attribute name='action'>app.layersubobj</attribute>"
-"            </item>"
-"          </section>"
-"        </submenu>"
-"      </section>"
-"    </submenu>"
-"    <submenu>"
-"      <attribute name='label' translatable='yes'>_Help</attribute>"
-"      <section>"
-"        <item>"
-"          <attribute name='label' translatable='yes'>_About</attribute>"
-"          <attribute name='action'>app.about</attribute>"
-"        </item>"
-"      </section>"
-"    </submenu>"
-"  </menu>"
-"</interface>";
-
 static const GActionEntry app_entries[] = {
     // File
     { "open",          OpenNdsDialog },
@@ -1123,149 +269,6 @@ static const GActionEntry app_entries[] = {
     // Help
     { "about",         About },
 };
-
-static const char *toolbar =
-"<?xml version='1.0' encoding='UTF-8'?>"
-"<interface>"
-"  <requires lib='gtk+' version='3.24'/>"
-"  <object class='GtkBox' id='toolbar'>"
-"    <child>"
-"      <object class='GtkToolButton'>"
-"        <property name='label' translatable='yes'>_Open</property>"
-"        <property name='icon-name'>document-open</property>"
-"        <property name='action-name'>app.open</property>"
-"      </object>"
-"    </child>"
-"    <child>"
-"      <object class='GtkToolButton'>"
-"        <property name='label' translatable='yes'>_Run</property>"
-"        <property name='icon-name'>media-playback-start</property>"
-"        <property name='action-name'>app.run</property>"
-"      </object>"
-"    </child>"
-"    <child>"
-"      <object class='GtkToolButton'>"
-"        <property name='label' translatable='yes'>_Pause</property>"
-"        <property name='icon-name'>media-playback-pause</property>"
-"        <property name='action-name'>app.pause</property>"
-"      </object>"
-"    </child>"
-"    <child>"
-"      <object class='GtkToolButton'>"
-"        <property name='label' translatable='yes'>_Quit</property>"
-"        <property name='icon-name'>application-exit</property>"
-"        <property name='action-name'>app.quit</property>"
-"      </object>"
-"    </child>"
-"  </object>"
-"</interface>";
-
-static const char *graphics_settings =
-"<?xml version='1.0' encoding='UTF-8'?>"
-"<interface>"
-"  <requires lib='gtk+' version='3.24'/>"
-"  <object class='GtkGrid' id='graphics_grid'>"
-"    <child>"
-"      <object class='GtkLabel'>"
-"        <property name='label' translatable='yes'>3D Core:</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>0</property>"
-"        <property name='top_attach'>0</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkComboBoxText' id='core_combo'>"
-"        <items>"
-"          <item translatable='yes'>Null</item>"
-"          <item translatable='yes'>SoftRasterizer</item>"
-"          <item translatable='yes'>OpenGL</item>"
-"        </items>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>1</property>"
-"        <property name='top_attach'>0</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkLabel'>"
-"        <property name='label' translatable='yes'>3D Texture Upscaling:</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>0</property>"
-"        <property name='top_attach'>1</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkComboBoxText' id='scale'>"
-"        <items>"
-"          <item translatable='yes'>×1</item>"
-"          <item translatable='yes'>×2</item>"
-"          <item translatable='yes'>×4</item>"
-"        </items>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>1</property>"
-"        <property name='top_attach'>1</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkCheckButton' id='posterize'>"
-"        <property name='label' translatable='yes'>3D Texture Deposterization</property>"
-"        <property name='draw_indicator'>True</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>0</property>"
-"        <property name='top_attach'>2</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkCheckButton' id='smoothing'>"
-"        <property name='label' translatable='yes'>3D Texture Smoothing</property>"
-"        <property name='draw_indicator'>True</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>0</property>"
-"        <property name='top_attach'>3</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkCheckButton' id='hc_interpolate'>"
-"        <property name='label' translatable='yes'>High Resolution Color Interpolation (SoftRasterizer)</property>"
-"        <property name='draw_indicator'>True</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>1</property>"
-"        <property name='top_attach'>3</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkLabel'>"
-"        <property name='label' translatable='yes'>Multisample Antialiasing (OpenGL):</property>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>0</property>"
-"        <property name='top_attach'>4</property>"
-"      </packing>"
-"    </child>"
-"    <child>"
-"      <object class='GtkComboBoxText' id='multisample'>"
-"        <items>"
-"          <item translatable='yes'>None</item>"
-"          <item translatable='yes'>2</item>"
-"          <item translatable='yes'>4</item>"
-"          <item translatable='yes'>8</item>"
-"          <item translatable='yes'>16</item>"
-"          <item translatable='yes'>32</item>"
-"        </items>"
-"      </object>"
-"      <packing>"
-"        <property name='left_attach'>1</property>"
-"        <property name='top_attach'>4</property>"
-"      </packing>"
-"    </child>"
-"  </object>"
-"</interface>";
 
 enum winsize_enum {
 	WINSIZE_SCALE = 0,
@@ -2879,71 +1882,48 @@ static void Modify_JoyKey(GtkWidget* widget, gpointer data)
 
 #ifdef HAVE_JIT
 
-static void EmulationSettingsDialog(GSimpleAction *action, GVariant *parameter, gpointer user_data){
-	GtkWidget *esDialog;
-	GtkWidget *esKey;
+static void EmulationSettingsDialog(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    GtkDialog *dialog;
+    GtkCheckButton *use_dynarec;
+    GtkAdjustment *block_size;
 
-	esDialog=gtk_dialog_new_with_buttons("Emulation Settings",
-			GTK_WINDOW(pWindow),
-			GTK_DIALOG_MODAL,
-			"_OK",GTK_RESPONSE_OK,
-			"_Cancel",GTK_RESPONSE_CANCEL,
-			NULL);
+    GtkBuilder *builder = gtk_builder_new_from_resource("/org/desmume/DeSmuME/emulation_settings.ui");
+    dialog = GTK_DIALOG(gtk_builder_get_object(builder, "dialog"));
+    use_dynarec = GTK_CHECK_BUTTON(gtk_builder_get_object(builder, "use-dynarec"));
+    block_size = GTK_ADJUSTMENT(gtk_builder_get_object(builder, "block-size"));
+    g_object_unref(builder);
 
-    esKey=gtk_label_new("CPU Mode:\n");
-    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(esDialog))), esKey,TRUE, FALSE, 0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(use_dynarec), config.use_jit);
+    g_signal_connect(G_OBJECT(use_dynarec), "clicked", G_CALLBACK(ToggleJIT), GINT_TO_POINTER(0));
 
-	esKey=gtk_check_button_new_with_label("Use dynamic recompiler");
-	gtk_toggle_button_set_active((GtkToggleButton*)esKey,config.use_jit);
-	g_signal_connect(G_OBJECT(esKey),"clicked",G_CALLBACK(ToggleJIT),GINT_TO_POINTER(0));
-    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(esDialog))), esKey,TRUE, FALSE, 0);
+    gtk_adjustment_set_value(block_size, config.jit_max_block_size);
+    g_signal_connect(G_OBJECT(block_size), "value_changed", G_CALLBACK(JITMaxBlockSizeChanged), NULL);
 
-    esKey=gtk_label_new("Block Size (1 - accuracy, 100 - fastest):");
-    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(esDialog))), esKey,TRUE, FALSE, 0);
+    bool prev_use_jit = config.use_jit;
+    int prev_jit_max_block_size = config.jit_max_block_size;
 
-    GtkAdjustment* JITBlockSizeAdjustment=(GtkAdjustment*)gtk_adjustment_new(config.jit_max_block_size,1,100,1,5,0);
-    esKey=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, JITBlockSizeAdjustment);
-    gtk_scale_set_digits((GtkScale*)esKey,0);
-    g_signal_connect(G_OBJECT(JITBlockSizeAdjustment),"value_changed",G_CALLBACK(JITMaxBlockSizeChanged),NULL);
-    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(esDialog))), esKey,TRUE, FALSE, 0);
-
-    esKey=gtk_label_new(
-    		"Enabling this will get you 0-50% speedups. It is optional because it\n"
-    		"may still contain small small bugs, due mostly merely to newness, \n"
-    		"which can safely be fixed in time. Furthermore, you may have to \n"
-    		"tune the block size to prevent some games from breaking.\n"
-    		"\n"
-    		"This should not be assumed to be deterministic."
-    		);
-    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(esDialog))), esKey,TRUE, FALSE, 0);
-
-	gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(esDialog)));
-
-	bool prev_use_jit=config.use_jit;
-	int prev_jit_max_block_size=config.jit_max_block_size;
-
-	switch (gtk_dialog_run(GTK_DIALOG(esDialog))) {
-	case GTK_RESPONSE_OK:
-		CommonSettings.jit_max_block_size=config.jit_max_block_size;
-		arm_jit_sync();
-		arm_jit_reset(CommonSettings.use_jit=config.use_jit);
-		break;
-	case GTK_RESPONSE_CANCEL:
-	case GTK_RESPONSE_NONE:
-		config.use_jit=prev_use_jit;
-		config.jit_max_block_size=prev_jit_max_block_size;
-		break;
-	}
-	gtk_widget_destroy(esDialog);
+    switch (gtk_dialog_run(dialog)) {
+    case GTK_RESPONSE_OK:
+        CommonSettings.jit_max_block_size = config.jit_max_block_size;
+        arm_jit_sync();
+        arm_jit_reset(CommonSettings.use_jit = config.use_jit);
+        break;
+    case GTK_RESPONSE_CANCEL:
+    case GTK_RESPONSE_NONE:
+        config.use_jit = prev_use_jit;
+        config.jit_max_block_size = prev_jit_max_block_size;
+        break;
+    }
+    gtk_widget_destroy(GTK_WIDGET(dialog));
 
 }
 
-static void JITMaxBlockSizeChanged(GtkAdjustment* adj,void * nullPtr){
-	config.jit_max_block_size=(int)gtk_adjustment_get_value(adj);
+static void JITMaxBlockSizeChanged(GtkAdjustment* adj, gpointer data) {
+    config.jit_max_block_size = (int)gtk_adjustment_get_value(adj);
 }
 
-static void ToggleJIT(){
-	config.use_jit=!config.use_jit;
+static void ToggleJIT() {
+    config.use_jit = !config.use_jit;
 }
 
 #endif
@@ -2989,25 +1969,14 @@ static void Edit_Joystick_Controls(GSimpleAction *action, GVariant *parameter, g
 
 
 static void GraphicsSettingsDialog(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
-	GtkWidget *gsDialog;
-	GtkBox *wBox;
+	GtkDialog *dialog;
 	GtkGrid *wGrid;
 	GtkComboBox *coreCombo, *wScale, *wMultisample;
 	GtkToggleButton *wPosterize, *wSmoothing, *wHCInterpolate;
 
-	gsDialog = gtk_dialog_new_with_buttons("Graphics Settings",
-			GTK_WINDOW(pWindow),
-			GTK_DIALOG_MODAL,
-			"_OK",
-			GTK_RESPONSE_OK,
-			"_Cancel",
-			GTK_RESPONSE_CANCEL,
-			NULL);
-
-	GtkBuilder *builder = gtk_builder_new_from_string(graphics_settings, -1);
-	wBox = GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(gsDialog)));
+	GtkBuilder *builder = gtk_builder_new_from_resource("/org/desmume/DeSmuME/graphics.ui");
+	dialog = GTK_DIALOG(gtk_builder_get_object(builder, "dialog"));
 	wGrid = GTK_GRID(gtk_builder_get_object(builder, "graphics_grid"));
-	gtk_box_pack_start(wBox, GTK_WIDGET(wGrid), TRUE, FALSE, 0);
 	coreCombo = GTK_COMBO_BOX(gtk_builder_get_object(builder, "core_combo"));
 	wScale = GTK_COMBO_BOX(gtk_builder_get_object(builder, "scale"));
 	wMultisample = GTK_COMBO_BOX(gtk_builder_get_object(builder, "multisample"));
@@ -3043,9 +2012,9 @@ static void GraphicsSettingsDialog(GSimpleAction *action, GVariant *parameter, g
 	// SoftRasterizer High Color Interpolation
 	gtk_toggle_button_set_active(wHCInterpolate, CommonSettings.GFX3D_HighResolutionInterpolateColor);
 
-	gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(gsDialog)));
+	gtk_widget_show_all(gtk_dialog_get_content_area(dialog));
 
-    switch (gtk_dialog_run(GTK_DIALOG(gsDialog))) {
+    switch (gtk_dialog_run(dialog)) {
     case GTK_RESPONSE_OK:
     // Start: OK Response block
     {
@@ -3113,7 +2082,7 @@ static void GraphicsSettingsDialog(GSimpleAction *action, GVariant *parameter, g
         break;
     }
 
-	gtk_widget_destroy(gsDialog);
+	gtk_widget_destroy(GTK_WIDGET(dialog));
 
 }
 
@@ -3898,8 +2867,6 @@ common_gtk_main(GApplication *app, gpointer user_data)
 
     SDL_TimerID limiter_timer = 0;
 
-    GtkWidget *pBox;
-
     /* use any language set on the command line */
     if ( my_config->firmware_language != -1) {
 		CommonSettings.fwConfig.language = my_config->firmware_language;
@@ -4037,25 +3004,19 @@ common_gtk_main(GApplication *app, gpointer user_data)
     g_printerr("Using %d threads for video filter.\n", CommonSettings.num_cores);
     video = new VideoFilter(256, 384, VideoFilterTypeID_None, CommonSettings.num_cores);
 
-    /* Create the window */
-    pWindow = gtk_application_window_new(GTK_APPLICATION(app));
-    gtk_window_set_title(GTK_WINDOW(pWindow), "DeSmuME");
-    gtk_window_set_resizable(GTK_WINDOW (pWindow), TRUE);
-    gtk_window_set_icon_name(GTK_WINDOW (pWindow), "DeSmuME");
+    /* Fetch the main elements from the window */
+    GtkBuilder *builder = gtk_builder_new_from_resource("/org/desmume/DeSmuME/main.ui");
+    pWindow = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
+    pToolBar = GTK_WIDGET(gtk_builder_get_object(builder, "toolbar"));
+    pDrawingArea = GTK_WIDGET(gtk_builder_get_object(builder, "drawing-area"));
+    pStatusBar = GTK_WIDGET(gtk_builder_get_object(builder, "status-bar"));
+    g_object_unref(builder);
+
+    gtk_application_add_window(GTK_APPLICATION(app), GTK_WINDOW(pWindow));
 
     g_signal_connect(G_OBJECT(pWindow), "destroy", G_CALLBACK(DoQuit), NULL);
     g_signal_connect(G_OBJECT(pWindow), "key_press_event", G_CALLBACK(Key_Press), NULL);
     g_signal_connect(G_OBJECT(pWindow), "key_release_event", G_CALLBACK(Key_Release), NULL);
-
-    /* Create the GtkBox */
-    pBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_container_add(GTK_CONTAINER(pWindow), pBox);
-
-    /* Create the toolbar */
-    GtkBuilder *builder = gtk_builder_new_from_string(toolbar, -1);
-    pToolBar = GTK_WIDGET(gtk_builder_get_object(builder, "toolbar"));
-    gtk_container_add(GTK_CONTAINER(pBox), pToolBar);
-    g_object_unref(builder);
 
     /* Update audio toggle status */
     if (my_config->disable_sound || !config.audio_enabled) {
@@ -4341,14 +3302,42 @@ common_gtk_main(GApplication *app, gpointer user_data)
     nds_screen.swap = config.view_swap;
     g_simple_action_set_state(G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(app), "swapscreens")), g_variant_new_boolean(config.view_swap));
 
-    builder = gtk_builder_new_from_string(menu_builder, -1);
+    builder = gtk_builder_new_from_resource("/org/desmume/DeSmuME/menu.ui");
     GMenuModel *menubar = G_MENU_MODEL(gtk_builder_get_object(builder, "menubar"));
     GMenuModel *open_recent_menu = G_MENU_MODEL(gtk_builder_get_object(builder, "open_recent"));
     savestates_menu = G_MENU_MODEL(gtk_builder_get_object(builder, "savestates"));
     loadstates_menu = G_MENU_MODEL(gtk_builder_get_object(builder, "loadstates"));
+    GMenu *config_menu = G_MENU(gtk_builder_get_object(builder, "config"));
+
+#ifdef FAKE_MIC
+    GMenuItem *mic_noise = g_menu_item_new("Fake mic _noise", "app.micnoise");
+    g_menu_insert_item(config_menu, 3, mic_noise);
+#endif
+
+#ifdef HAVE_JIT
+    GMenuItem *emulation_settings = g_menu_item_new("Em_ulation Settings", "app.emulationsettings");
+    g_menu_insert_item(config_menu, 1, emulation_settings);
+#endif
+
+#ifdef HAVE_LIBSOUNDTOUCH
+    GMenu *audio_sync_menu = G_MENU(gtk_builder_get_object(builder, "audio-synchronisation"));
+    GMenuItem *sync_p = g_menu_item_new("Synchronous (_P)", "app.spu_mode(\"sync-p\")");
+    g_menu_append_item(audio_sync_menu, sync_p);
+#endif
+
+    GMenu *view_menu = G_MENU(gtk_builder_get_object(builder, "view"));
+    GMenuModel *hud = G_MENU_MODEL(gtk_builder_get_object(builder,
+#ifdef HAVE_LIBAGG
+        "hud_supported"
+#else
+        "hud_unsupported"
+#endif
+    ));
+    g_menu_append_submenu(view_menu, "_HUD", hud);
+
     gtk_application_set_menubar(GTK_APPLICATION(app), menubar);
     g_object_unref(builder);
-	pApp = GTK_APPLICATION(app);
+    pApp = GTK_APPLICATION(app);
 
     GtkRecentManager *manager = gtk_recent_manager_get_default();
     GList *items = gtk_recent_manager_get_items(manager);
@@ -4372,14 +3361,8 @@ common_gtk_main(GApplication *app, gpointer user_data)
     }, open_recent_menu);
     g_list_free(items);
 
-    /* Creating the place for showing DS screens */
-    pDrawingArea = gtk_drawing_area_new();
-    gtk_widget_set_vexpand(pDrawingArea, TRUE);
-
     /* This toggle action must not be set active before the pDrawingArea initialization to avoid a GTK warning */
     g_simple_action_set_state(G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(app), "gap")), g_variant_new_boolean(config.view_gap));
-
-    gtk_container_add (GTK_CONTAINER(pBox), pDrawingArea);
 
     gtk_widget_set_events(pDrawingArea,
                           GDK_EXPOSURE_MASK | GDK_LEAVE_NOTIFY_MASK |
@@ -4398,9 +3381,7 @@ common_gtk_main(GApplication *app, gpointer user_data)
                      G_CALLBACK(ConfigureDrawingArea), NULL ) ;
 
     /* Status bar */
-    pStatusBar = gtk_statusbar_new();
     UpdateStatusBar(EMU_DESMUME_NAME_AND_VERSION());
-    gtk_box_pack_end(GTK_BOX(pBox), pStatusBar, FALSE, FALSE, 0);
 
     gtk_widget_show_all(pWindow);
 
