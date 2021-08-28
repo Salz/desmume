@@ -33,7 +33,7 @@
 
 //TODO - it isn't possible to build a core without a frontend, so really this belongs with frontend modules
 //the only stuff that belongs in the core is major/minor/build versions which are (in principle) used for versioning savestates and movies and such..
-#if defined(HOST_WINDOWS) || defined(DESMUME_COCOA)
+#if (defined(HOST_WINDOWS) || defined(DESMUME_COCOA)) &&!defined(TARGET_INTERFACE)
 	#include "scmrev.h"
 	#define SVN_REV_STR SCM_DESC_STR
 #else
@@ -50,6 +50,8 @@
 	#define DESMUME_PLATFORM_STRING " ARM"
 #elif defined(__thumb__)
 	#define DESMUME_PLATFORM_STRING " ARM-Thumb"
+#elif defined(__aarch64__)
+	#define DESMUME_PLATFORM_STRING " AArch64"
 #elif defined(__ppc64__)
 	#define DESMUME_PLATFORM_STRING " PPC64"
 #elif defined(__ppc__) || defined(_M_PPC)
