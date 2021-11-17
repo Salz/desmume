@@ -32,15 +32,12 @@
 #if defined(ENABLE_AVX512_1)
 	#define USEVECTORSIZE_512
 	#define VECTORSIZE 64
-	#include "./utils/colorspacehandler/colorspacehandler_AVX512.h"
 #elif defined(ENABLE_AVX2)
 	#define USEVECTORSIZE_256
 	#define VECTORSIZE 32
-	#include "./utils/colorspacehandler/colorspacehandler_AVX2.h"
 #elif defined(ENABLE_SSE2)
 	#define USEVECTORSIZE_128
 	#define VECTORSIZE 16
-	#include "./utils/colorspacehandler/colorspacehandler_SSE2.h"
 #elif defined(ENABLE_ALTIVEC)
 	#define USEVECTORSIZE_128
 	#define VECTORSIZE 16
@@ -346,9 +343,9 @@ void DISP_FIFOsend_u32(u32 val)
 	disp_fifo.buf[disp_fifo.tail] = val;
 	
 	disp_fifo.tail++;
-	if (disp_fifo.head >= 0x6000)
+	if (disp_fifo.tail >= 0x6000)
 	{
-		disp_fifo.head -= 0x6000;
+		disp_fifo.tail = 0;
 	}
 }
 
@@ -360,7 +357,7 @@ u32 DISP_FIFOrecv_u32()
 	disp_fifo.head++;
 	if (disp_fifo.head >= 0x6000)
 	{
-		disp_fifo.head -= 0x6000;
+		disp_fifo.head = 0;
 	}
 
 	return val;
@@ -377,22 +374,35 @@ static void _DISP_FIFOrecv_LineAdvance()
 
 void DISP_FIFOrecv_Line16(u16 *__restrict dst)
 {
-#ifndef ENABLE_ALTIVEC // buffer_copy_fast() doesn't support endian swapping
-	if ( (disp_fifo.head + (GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16)) / sizeof(u32) <= 0x6000)
 #ifdef USEMANUALVECTORIZATION
-		&& (disp_fifo.head == (disp_fifo.head & ~(VECTORSIZE - 1)))
-#endif
-		)
+	if ( (disp_fifo.head + (GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16)) / sizeof(u32) <= 0x6000) && (disp_fifo.head == (disp_fifo.head & ~(VECTORSIZE - 1))) )
 	{
+#ifdef ENABLE_ALTIVEC
+		// Big-endian systems read the pixels in their correct bit order, but swap 16-bit chunks
+		// within 32-bit lanes, and so we can't use a standard buffer copy function here.
+		for (size_t i = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16); i+=sizeof(v128u16))
+		{
+			v128u16 fifoColor = vec_ld(i, disp_fifo.buf + disp_fifo.head);
+			fifoColor = vec_perm( fifoColor, fifoColor, ((v128u8){2,3, 0,1, 6,7, 4,5, 10,11, 8,9, 14,15, 12,13}) );
+			vec_st(fifoColor, i, dst);
+		}
+#else
 		buffer_copy_fast<GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16)>(dst, disp_fifo.buf + disp_fifo.head);
+#endif // ENABLE_ALTIVEC
+		
 		_DISP_FIFOrecv_LineAdvance();
 	}
 	else
-#endif // ENABLE_ALTIVEC
+#endif // USEMANUALVECTORIZATION
 	{
 		for (size_t i = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16) / sizeof(u32); i++)
 		{
-			((u32 *)dst)[i] = LE_TO_LOCAL_32( DISP_FIFOrecv_u32() );
+			const u32 src = DISP_FIFOrecv_u32();
+#ifdef MSB_FIRST
+			((u32 *)dst)[i] = (src >> 16) | (src << 16);
+#else
+			((u32 *)dst)[i] = src;
+#endif
 		}
 	}
 }
@@ -402,95 +412,30 @@ void DISP_FIFOrecv_Line16(u16 *__restrict dst)
 template <NDSColorFormat OUTPUTFORMAT>
 void _DISP_FIFOrecv_LineOpaque16_vec(u32 *__restrict dst)
 {
+#ifdef ENABLE_ALTIVEC
+	// Big-endian systems read the pixels in their correct bit order, but swap 16-bit chunks
+	// within 32-bit lanes, and so we can't use a standard buffer copy function here.
+	for (size_t i = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16); i+=sizeof(v128u16))
+	{
+		v128u16 fifoColor = vec_ld(i, disp_fifo.buf + disp_fifo.head);
+		fifoColor = vec_perm( fifoColor, fifoColor, ((v128u8){2,3, 0,1, 6,7, 4,5, 10,11, 8,9, 14,15, 12,13}) );
+		fifoColor = vec_or(fifoColor, ((v128u16){0x8000,0x8000,0x8000,0x8000,0x8000,0x8000,0x8000,0x8000}));
+		vec_st(fifoColor, i, dst);
+	}
+#else
 	buffer_copy_or_constant_s16_fast<GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16), false>(dst, disp_fifo.buf + disp_fifo.head, 0x8000);
+#endif // ENABLE_ALTIVEC
+	
 	_DISP_FIFOrecv_LineAdvance();
 }
 
 template <NDSColorFormat OUTPUTFORMAT>
 void _DISP_FIFOrecv_LineOpaque32_vec(u32 *__restrict dst)
 {
-#if defined(ENABLE_AVX512_0)
-	for (size_t i = 0, d = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16) / sizeof(v512u16); i++, d+=2)
-	{
-		const v512u16 fifoColor = _mm512_load_si512((v512u16 *)(disp_fifo.buf + disp_fifo.head));
-		
-		disp_fifo.head += (sizeof(v512u16)/sizeof(u32));
-		if (disp_fifo.head >= 0x6000)
-		{
-			disp_fifo.head -= 0x6000;
-		}
-		
-		v512u32 dstLo = _mm512_setzero_si512();
-		v512u32 dstHi = _mm512_setzero_si512();
-		
-		if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
-		{
-			ColorspaceConvert555To6665Opaque_AVX512<false>(fifoColor, dstLo, dstHi);
-		}
-		else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
-		{
-			ColorspaceConvert555To8888Opaque_AVX512<false>(fifoColor, dstLo, dstHi);
-		}
-		
-		_mm512_store_si512((v512u32 *)dst + d + 0, dstLo);
-		_mm512_store_si512((v512u32 *)dst + d + 1, dstHi);
-	}
-#elif defined(ENABLE_AVX2)
-	for (size_t i = 0, d = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16) / sizeof(v256u16); i++, d+=2)
-	{
-		const v256u16 fifoColor = _mm256_load_si256((v256u16 *)(disp_fifo.buf + disp_fifo.head));
-		
-		disp_fifo.head += (sizeof(v256u16)/sizeof(u32));
-		if (disp_fifo.head >= 0x6000)
-		{
-			disp_fifo.head -= 0x6000;
-		}
-		
-		v256u32 dstLo = _mm256_setzero_si256();
-		v256u32 dstHi = _mm256_setzero_si256();
-		
-		if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
-		{
-			ColorspaceConvert555To6665Opaque_AVX2<false>(fifoColor, dstLo, dstHi);
-		}
-		else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
-		{
-			ColorspaceConvert555To8888Opaque_AVX2<false>(fifoColor, dstLo, dstHi);
-		}
-		
-		_mm256_store_si256((v256u32 *)dst + d + 0, dstLo);
-		_mm256_store_si256((v256u32 *)dst + d + 1, dstHi);
-	}
-#elif defined(ENABLE_SSE2)
-	for (size_t i = 0, d = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16) / sizeof(v128u16); i++, d+=2)
-	{
-		const v128u16 fifoColor = _mm_load_si128((v128u16 *)(disp_fifo.buf + disp_fifo.head));
-		
-		disp_fifo.head += (sizeof(v128u16)/sizeof(u32));
-		if (disp_fifo.head >= 0x6000)
-		{
-			disp_fifo.head -= 0x6000;
-		}
-		
-		v128u32 dstLo = _mm_setzero_si128();
-		v128u32 dstHi = _mm_setzero_si128();
-		
-		if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
-		{
-			ColorspaceConvert555To6665Opaque_SSE2<false>(fifoColor, dstLo, dstHi);
-		}
-		else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
-		{
-			ColorspaceConvert555To8888Opaque_SSE2<false>(fifoColor, dstLo, dstHi);
-		}
-		
-		_mm_store_si128((v128u32 *)dst + d + 0, dstLo);
-		_mm_store_si128((v128u32 *)dst + d + 1, dstHi);
-	}
-#elif defined(ENABLE_ALTIVEC)
+#ifdef ENABLE_ALTIVEC
 	for (size_t i = 0, d = 0; i < GPU_FRAMEBUFFER_NATIVE_WIDTH * sizeof(u16); i+=16, d+=32)
 	{
-		const v128u16 fifoColor = vec_ld(disp_fifo.head, disp_fifo.buf);
+		v128u16 fifoColor = vec_ld(0, disp_fifo.buf + disp_fifo.head);
 		
 		disp_fifo.head += (sizeof(v128u16)/sizeof(u32));
 		if (disp_fifo.head >= 0x6000)
@@ -500,23 +445,34 @@ void _DISP_FIFOrecv_LineOpaque32_vec(u32 *__restrict dst)
 		
 		v128u32 dstLo = ((v128u32){0,0,0,0});
 		v128u32 dstHi = ((v128u32){0,0,0,0});
+		fifoColor = vec_perm( fifoColor, fifoColor, ((v128u8){10,11, 8,9, 14,15, 12,13, 2,3, 0,1, 6,7, 4,5}) );
 		
 		if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
 		{
-			ColorspaceConvert555To6665Opaque_Altivec<false>(fifoColor, dstLo, dstHi);
+			ColorspaceConvert555To6665Opaque_AltiVec<false, BESwapDst>(fifoColor, dstLo, dstHi);
 		}
 		else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
 		{
-			ColorspaceConvert555To8888Opaque_Altivec<false>(fifoColor, dstLo, dstHi);
+			ColorspaceConvert555To8888Opaque_AltiVec<false, BESwapDst>(fifoColor, dstLo, dstHi);
 		}
 		
 		vec_st(dstLo, d +  0, dst);
 		vec_st(dstHi, d + 16, dst);
 	}
-#endif
+#else
+	if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
+	{
+		ColorspaceConvertBuffer555To6665Opaque<false, false, BESwapDst>((u16 *)(disp_fifo.buf + disp_fifo.head), dst, GPU_FRAMEBUFFER_NATIVE_WIDTH);
+	}
+	else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
+	{
+		ColorspaceConvertBuffer555To8888Opaque<false, false, BESwapDst>((u16 *)(disp_fifo.buf + disp_fifo.head), dst, GPU_FRAMEBUFFER_NATIVE_WIDTH);
+	}
+	_DISP_FIFOrecv_LineAdvance();
+#endif // ENABLE_ALTIVEC
 }
 
-#endif
+#endif // USEMANUALVECTORIZATION
 
 template <NDSColorFormat OUTPUTFORMAT>
 void DISP_FIFOrecv_LineOpaque(u32 *__restrict dst)
@@ -556,13 +512,13 @@ void DISP_FIFOrecv_LineOpaque(u32 *__restrict dst)
 				
 				if (OUTPUTFORMAT == NDSColorFormat_BGR666_Rev)
 				{
-					dst[i+0] = COLOR555TO6665_OPAQUE((src >>  0) & 0x7FFF);
-					dst[i+1] = COLOR555TO6665_OPAQUE((src >> 16) & 0x7FFF);
+					dst[i+0] = LE_TO_LOCAL_32( ColorspaceConvert555To6665Opaque<false>((src >>  0) & 0x7FFF) );
+					dst[i+1] = LE_TO_LOCAL_32( ColorspaceConvert555To6665Opaque<false>((src >> 16) & 0x7FFF) );
 				}
 				else if (OUTPUTFORMAT == NDSColorFormat_BGR888_Rev)
 				{
-					dst[i+0] = COLOR555TO8888_OPAQUE((src >>  0) & 0x7FFF);
-					dst[i+1] = COLOR555TO8888_OPAQUE((src >> 16) & 0x7FFF);
+					dst[i+0] = LE_TO_LOCAL_32( ColorspaceConvert555To8888Opaque<false>((src >>  0) & 0x7FFF) );
+					dst[i+1] = LE_TO_LOCAL_32( ColorspaceConvert555To8888Opaque<false>((src >> 16) & 0x7FFF) );
 				}
 			}
 		}

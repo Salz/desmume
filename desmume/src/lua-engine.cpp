@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2009-2019 DeSmuME team
+	Copyright (C) 2009-2021 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -2261,7 +2261,7 @@ public:
 
 	virtual size_t fwrite(const void *ptr, size_t bytes)
 	{
-		if(!failbit)
+		if(!this->_failbit)
 		{
 			u8* dst = buf()+pos;
 			const u8* src = (const u8*)ptr;
@@ -2271,14 +2271,14 @@ public:
 				if(*src != *dst)
 				{
 					if(differences.size() == 100)
-						failbit = true;
+						this->_failbit = true;
 					else
 					{
 						const NDSDisplayInfo &dispInfo = GPU->GetDisplayInfo();
 						char temp [256];
 						sprintf(temp, " " /*"mismatch at "*/ "byte %d(0x%X at %p): %d(0x%X) != %d(0x%X)\n", i, i, dst, *src,*src, *dst,*dst);
 
-						if(ptr == dispInfo.masterNativeBuffer || ptr == dispInfo.masterCustomBuffer || ptr == GPU->GetEngineMain()->Get3DFramebufferMain()) // ignore screen-only differences since frame skipping can cause them and it's probably ok
+						if(ptr == dispInfo.masterNativeBuffer16 || ptr == dispInfo.masterCustomBuffer || ptr == GPU->GetEngineMain()->Get3DFramebufferMain()) // ignore screen-only differences since frame skipping can cause them and it's probably ok
 							break;
 
 						differences.push_back(temp); // <-- probably the best place for a breakpoint

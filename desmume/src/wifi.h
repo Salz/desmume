@@ -1,7 +1,7 @@
 /*
     Copyright (C) 2007 Tim Seidel
     Copyright (C) 2014 pleonex
-    Copyright (C) 2008-2018 DeSmuME team
+    Copyright (C) 2008-2021 DeSmuME team
 
     This file is part of DeSmuME
 
@@ -2773,9 +2773,11 @@ typedef struct
 
 typedef struct
 {
-	IOREG_W_TXBUF_LOCATION *txLocation;
-	size_t emuPacketLength;
-	size_t remainingBytes;
+	//do not do this. it will break savestates (pointer sizes may vary, and what sense does it make to save them anyway).
+	//if this is needed later once somebody makes wifi work later, use some integer to ID the packet kind and look up the correct TXBUF from that
+	//IOREG_W_TXBUF_LOCATION *txLocation;
+	u32 emuPacketLength;
+	u32 remainingBytes;
 } TXPacketInfo;
 
 typedef struct
@@ -2785,7 +2787,7 @@ typedef struct
 	bb_t bb;
 	u8 RAM[0x2000];
 	
-	WifiTXLocIndex txCurrentSlot;
+	s32 txCurrentSlot; // Possible values are declared in WifiTXLocIndex.
 	TXPacketInfo txPacketInfo[6];
 	u32 cmdCount_u32;
 	u64 usecCounter;

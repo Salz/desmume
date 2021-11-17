@@ -631,7 +631,7 @@ static void buffer_copy_fast(void *__restrict dst, void *__restrict src)
 template <class T, size_t VECLENGTH, bool NEEDENDIANSWAP>
 static void __buffer_copy_or_constant_fast(void *__restrict dst, const void *__restrict src, const T &c_vec)
 {
-	MACRODO_N( VECLENGTH / sizeof(v128s8), vec_st(vec_or(vec_ld((X)*sizeof(v128s8),src),c_vec), (X)*sizeof(v128s8), dst) );
+	MACRODO_N( VECLENGTH / sizeof(v128s8), vec_st(vec_or(vec_ld((X)*sizeof(v128s8),(T*)src),c_vec), (X)*sizeof(v128s8), dst) );
 }
 
 template <class T, bool NEEDENDIANSWAP>
@@ -652,7 +652,7 @@ static void __buffer_copy_or_constant(void *__restrict dst, const void *__restri
 		{
 			for (size_t i = 0; i < vecLength; i+=sizeof(T))
 			{
-				vec_st(vec_or(vec_ld(i,src),c_vec), i, dst);
+				vec_st(vec_or(vec_ld(i,(T*)src),c_vec), i, dst);
 			}
 			break;
 		}
@@ -662,7 +662,7 @@ static void __buffer_copy_or_constant(void *__restrict dst, const void *__restri
 static void buffer_copy_or_constant_s8(void *__restrict dst, const void *__restrict src, const size_t vecLength, const s8 c)
 {
 	const v128s8 c_vec = {c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c};
-	__buffer_copy_or_constant<v128s8>(dst, src, vecLength, c_vec);
+	__buffer_copy_or_constant<v128s8, false>(dst, src, vecLength, c_vec);
 }
 
 template <size_t VECLENGTH>
@@ -928,7 +928,7 @@ static void buffer_copy_or_constant_s32(void *__restrict dst, const void *__rest
 	s32 *dst_32 = (s32 *)dst;
 	
 	for (size_t i = 0; i < vecLength; i+=sizeof(s32))
-		dst_32[i] = (ENDIANSWAPSTORE) ? LOCAL_TO_LE_32(src_32[i] | c) : src_32[i] | c;
+		dst_32[i] = (NEEDENDIANSWAP) ? LOCAL_TO_LE_32(src_32[i] | c) : src_32[i] | c;
 #endif
 }
 
@@ -957,7 +957,7 @@ static void buffer_copy_or_constant_s32_fast(void *__restrict dst, void *__restr
 	s32 *dst_32 = (s32 *)dst;
 	
 	for (size_t i = 0; i < VECLENGTH; i+=sizeof(s32))
-		dst_32[i] = (ENDIANSWAPSTORE) ? LOCAL_TO_LE_32(src_32[i] | c) : src_32[i] | c;
+		dst_32[i] = (NEEDENDIANSWAP) ? LOCAL_TO_LE_32(src_32[i] | c) : src_32[i] | c;
 #endif
 }
 

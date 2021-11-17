@@ -355,7 +355,7 @@ public:
 	
 	const NDSDisplayInfo &dispInfo = GPU->GetDisplayInfo();
 	
-	if (colorFormat != dispInfo.colorFormat)
+	if (dispInfo.colorFormat != (NDSColorFormat)colorFormat)
 	{
 #ifdef ENABLE_SHARED_FETCH_OBJECT
 		const size_t maxPages = GPU->GetDisplayInfo().framebufferPageCount;
@@ -521,7 +521,7 @@ public:
 	
 	CommonSettings.num_cores = numberCores;
 	
-	if (renderingEngineID == CORE3DLIST_SWRASTERIZE)
+	if (renderingEngineID == RENDERID_SOFTRASTERIZER)
 	{
 		GPU->Set3DRendererByID(renderingEngineID);
 	}
@@ -558,7 +558,7 @@ public:
 {
 	gpuEvent->ApplyRender3DSettingsLock();
 	
-	const int currentMSAASize = CommonSettings.GFX3D_Renderer_MultisampleSize;
+	const NSUInteger currentMSAASize = (NSUInteger)CommonSettings.GFX3D_Renderer_MultisampleSize;
 	
 	if (currentMSAASize != msaaSize)
 	{
@@ -644,8 +644,8 @@ public:
 			msaaSize = openglDeviceMaxMultisamples;
 		}
 		
-		msaaSize = GetNearestPositivePOT(msaaSize);
-		CommonSettings.GFX3D_Renderer_MultisampleSize = msaaSize;
+		msaaSize = GetNearestPositivePOT((uint32_t)msaaSize);
+		CommonSettings.GFX3D_Renderer_MultisampleSize = (int)msaaSize;
 	}
 	
 	gpuEvent->ApplyRender3DSettingsUnlock();
@@ -1769,6 +1769,13 @@ CGLPBufferObj OSXOpenGLRendererPBuffer = NULL;
 
 static void* RunFetchThread(void *arg)
 {
+#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
+	if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber10_6)
+	{
+		pthread_setname_np("Video Fetch");
+	}
+#endif
+	
 	MacClientSharedObject *sharedData = (MacClientSharedObject *)arg;
 	[sharedData runFetchLoop];
 	
@@ -1876,10 +1883,13 @@ bool CreateOpenGLRenderer()
 		(CGLPixelFormatAttribute)0
 	};
 	
-#ifdef MAC_OS_X_VERSION_10_7
 	// If we can support a 3.2 Core Profile context, then request that in our
 	// pixel format attributes.
-	useContext_3_2 = IsOSXVersionSupported(10, 7, 0);
+#ifdef MAC_OS_X_VERSION_10_7
+	// As of 2021/09/03, testing has shown that macOS v10.7's OpenGL 3.2 shader
+	// compiler isn't very reliable, and so we're going to require macOS v10.8
+	// instead, which at least has a working shader compiler for OpenGL 3.2.
+	useContext_3_2 = IsOSXVersionSupported(10, 8, 0);
 	if (useContext_3_2)
 	{
 		attrs[9] = kCGLPFAOpenGLProfile;
