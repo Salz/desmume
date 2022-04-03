@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2005 Guillaume Duhamel
-	Copyright (C) 2008-2021 DeSmuME team
+	Copyright (C) 2008-2022 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -23,6 +23,10 @@
 #include <retro_inline.h>
 #include <math/fxp.h>
 
+#ifdef __APPLE__
+	#include <AvailabilityMacros.h>
+#endif
+
 //analyze microsoft compilers
 #ifdef _MSC_VER
 	#define HOST_WINDOWS
@@ -30,7 +34,7 @@
 
 // Determine CPU architecture for platforms that don't use the autoconf script
 #if defined(HOST_WINDOWS) || defined(DESMUME_COCOA)
-	#if defined(__x86_64__) || defined(__LP64) || defined(__IA64__) || defined(_M_X64) || defined(_WIN64) || defined(__aarch64__) || defined(__ppc64__)
+	#if defined(__x86_64__) || defined(__LP64) || defined(__IA64__) || defined(_M_X64) || defined(_WIN64) || defined(__aarch64__) || defined(_M_ARM64) || defined(__ppc64__)
 		#define HOST_64
 	#else
 		#define HOST_32
@@ -51,6 +55,14 @@
 #ifdef __GNUC__
 	#ifdef __ALTIVEC__
 		#define ENABLE_ALTIVEC
+	#endif
+
+// For now, we'll be starting off with only using NEON-A64 for easier testing
+// and development. If the development for A64 goes well and if an A32 backport
+// is discovered to be feasible, then we may explore backporting the NEON code
+// to A32 at a later date.
+	#if (defined(__ARM_NEON__) || defined(__ARM_NEON)) && (defined(__aarch64__) || defined(_M_ARM64))
+		#define ENABLE_NEON_A64
 	#endif
 
 	#ifdef __SSE__
@@ -258,6 +270,16 @@ typedef vector unsigned int v128u32;
 typedef vector signed int v128s32;
 #endif
 
+#ifdef ENABLE_NEON_A64
+#include <arm_neon.h>
+typedef uint8x16_t v128u8;
+typedef int8x16_t v128s8;
+typedef uint16x8_t v128u16;
+typedef int16x8_t v128s16;
+typedef uint32x4_t v128u32;
+typedef int32x4_t v128s32;
+#endif
+
 #ifdef ENABLE_SSE2
 #include <emmintrin.h>
 typedef __m128i v128u8;
@@ -366,7 +388,7 @@ inline bool atomic_test_and_set_barrier32(volatile s32 *V, s32 M)		{ return (_in
 inline bool atomic_test_and_clear_32(volatile s32 *V, s32 M)			{ return (_interlockedbittestandreset((volatile LONG *)V, (LONG)M)) ? true : false; }
 inline bool atomic_test_and_clear_barrier32(volatile s32 *V, s32 M)		{ return (_interlockedbittestandreset((volatile LONG *)V, (LONG)M)) ? true : false; }
 
-#elif defined(DESMUME_COCOA)
+#elif defined(DESMUME_COCOA) && ( !defined(__clang__) || (__clang_major__ < 9) || !defined(MAC_OS_X_VERSION_10_7) || (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_7) )
 #include <libkern/OSAtomic.h>
 
 #define atomic_add_32(V,M)						OSAtomicAdd32((M),(V))

@@ -127,8 +127,14 @@ EXPORTED void desmume_memory_write_short(int address, unsigned short value);
 EXPORTED void desmume_memory_write_long(int address, unsigned long value);
 //EXPORTED void desmume_memory_write_byterange(int address, int length, const unsigned char *bytes);
 
-EXPORTED int desmume_memory_read_register(char* register_name);
-EXPORTED void desmume_memory_write_register(char* register_name, long value);
+EXPORTED u32 desmume_memory_read_register(char* register_name);
+EXPORTED void desmume_memory_write_register(char* register_name, u32 value);
+// Get the next instruction address that the ARM9 processor will execute.
+// NOTE: This will NOT work with JIT enabled. NULL will be returned.
+EXPORTED u32 desmume_memory_get_next_instruction();
+// Get the next instruction address that the ARM9 processor will execute. Should be combined with setting the PC register (r15).
+// NOTE: This is a no-op with JIT enabled.
+EXPORTED void desmume_memory_set_next_instruction(u32 value);
 
 EXPORTED void desmume_memory_register_write(int address, int size, memory_cb_fnc cb);
 EXPORTED void desmume_memory_register_read(int address, int size, memory_cb_fnc cb);
