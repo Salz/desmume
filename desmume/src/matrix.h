@@ -45,15 +45,12 @@ enum MatrixMode
 	MATRIXMODE_TEXTURE			= 3
 };
 
-template<MatrixMode MODE>
-struct MatrixStack
-{
-	static const size_t size = ((MODE == MATRIXMODE_PROJECTION) || (MODE == MATRIXMODE_TEXTURE)) ? 1 : 32;
-	static const MatrixMode type = MODE;
-	
-	s32 matrix[size][16];
-	u32 position;
-};
+#define NDSMATRIXSTACK_COUNT(mode) ( (((mode) == MATRIXMODE_PROJECTION) || ((mode) == MATRIXMODE_TEXTURE)) ? 1 : 32 )
+
+typedef float NDSMatrixFloat[16];
+typedef s32 NDSMatrix[16];
+typedef NDSMatrix NDSMatrixStack1[1]; // Used for MATRIXMODE_PROJECTION and MATRIXMODE_TEXTURE
+typedef NDSMatrix NDSMatrixStack32[32]; // Used for MATRIXMODE_POSITION and MATRIXMODE_POSITION_VECTOR
 
 void MatrixInit(s32 (&mtx)[16]);
 void MatrixInit(float (&mtx)[16]);
@@ -75,9 +72,6 @@ int MatrixCompare(const float (&__restrict mtxDst)[16], const float (&__restrict
 s32	MatrixGetMultipliedIndex(const u32 index, const s32 (&__restrict mtxA)[16], const s32 (&__restrict mtxB)[16]);
 float MatrixGetMultipliedIndex(const u32 index, const float (&__restrict mtxA)[16], const float (&__restrict mtxB)[16]);
 
-template<MatrixMode MODE> void MatrixStackInit(MatrixStack<MODE> *stack);
-template<MatrixMode MODE> s32* MatrixStackGet(MatrixStack<MODE> *stack);
-
 void Vector2Copy(float *dst, const float *src);
 void Vector2Add(float *dst, const float *src);
 void Vector2Subtract(float *dst, const float *src);
@@ -95,16 +89,11 @@ void Vector3Normalize(float *dst);
 
 void Vector4Copy(float *dst, const float *src);
 
-
-void _MatrixMultVec4x4_NoSIMD(const s32 (&__restrict mtx)[16], float (&__restrict vec)[4]);
-
 void MatrixMultVec4x4(const s32 (&__restrict mtx)[16], float (&__restrict vec)[4]);
 void MatrixMultVec3x3(const s32 (&__restrict mtx)[16], float (&__restrict vec)[4]);
 void MatrixTranslate(float (&__restrict mtx)[16], const float (&__restrict vec)[4]);
 void MatrixScale(float (&__restrict mtx)[16], const float (&__restrict vec)[4]);
 void MatrixMultiply(float (&__restrict mtxA)[16], const s32 (&__restrict mtxB)[16]);
-
-template<size_t NUM_ROWS> FORCEINLINE void vector_fix2float(float (&mtx)[16], const float divisor);
 
 void MatrixMultVec4x4(const s32 (&__restrict mtx)[16], s32 (&__restrict vec)[4]);
 void MatrixMultVec3x3(const s32 (&__restrict mtx)[16], s32 (&__restrict vec)[4]);
@@ -744,7 +733,7 @@ static void memset_u32_fast(void *dst, const u32 val)
 template <size_t VECLENGTH>
 static void buffer_copy_fast(void *__restrict dst, void *__restrict src)
 {
-	MACRODO_N( VECLENGTH / sizeof(v128s8), vec_st(vec_ld((X)*sizeof(v128s8),src), (X)*sizeof(v128s8), dst) );
+	MACRODO_N( VECLENGTH / sizeof(v128s8), vec_st(vec_ld((X)*sizeof(v128s8),(u8 *__restrict)src), (X)*sizeof(v128s8), (u8 *__restrict)dst) );
 }
 
 template <size_t VECLENGTH>
@@ -752,7 +741,7 @@ static void stream_copy_fast(void *__restrict dst, void *__restrict src)
 {
 	// AltiVec doesn't have the same temporal/caching distinctions that SSE and AVX do,
 	// so just use buffer_copy_fast() for this function too.
-	buffer_copy_fast<VECLENGTH>(dst, src, VECLENGTH);
+	buffer_copy_fast<VECLENGTH>(dst, src);
 }
 
 template <class T, size_t VECLENGTH, bool NEEDENDIANSWAP>

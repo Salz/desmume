@@ -324,15 +324,7 @@
 		[inputPrefOutlineView deselectRow:rowNumber];
 	}
 	
-	// Update all expanded command tags.
-	for (NSString *tag in inputMappings)
-	{
-		NSArray *inputList = (NSArray *)[inputMappings valueForKey:tag];
-		if ([inputPrefOutlineView isItemExpanded:inputList])
-		{
-			[inputPrefOutlineView reloadItem:inputList reloadChildren:YES];
-		}
-	}
+	[inputPrefOutlineView reloadItem:nil reloadChildren:YES];
 	
 	[self setConfigInputTargetID:nil];
 	
@@ -793,7 +785,7 @@
 	[inputManager removeMappingUsingDeviceCode:[(NSString *)[deviceInfo valueForKey:@"deviceCode"] cStringUsingEncoding:NSUTF8StringEncoding] elementCode:[(NSString *)[deviceInfo valueForKey:@"elementCode"] cStringUsingEncoding:NSUTF8StringEncoding]];
 	[inputManager writeDefaultsInputMappings];
 	
-	[outlineView reloadItem:inputList reloadChildren:YES];
+	[outlineView reloadItem:nil reloadChildren:YES];
 	
 	// If we're dealing with a Microphone command, update the audio file generators list.
 	if ([[inputManager commandTagFromInputList:inputList] isEqualToString:@"Microphone"])
@@ -858,17 +850,7 @@
 	const NSInteger code = [CocoaDSUtil getIBActionSenderTag:sender];
 	
 	[sheet makeFirstResponder:nil]; // Force end of editing of any text fields.
-	
-#if defined(MAC_OS_X_VERSION_10_9) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_9)
-	if ([[sheet sheetParent] respondsToSelector:@selector(endSheet:returnCode:)])
-	{
-		[[sheet sheetParent] endSheet:sheet returnCode:code];
-	}
-	else
-#endif
-	{
-		[NSApp endSheet:sheet returnCode:code];
-	}
+	[CocoaDSUtil endSheet:sheet returnCode:code];
 }
 
 - (IBAction) updateCustomTurboPatternControls:(id)sender

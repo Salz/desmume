@@ -67,7 +67,7 @@
 		return nil;
 	}
 	
-	// Determine if we're running on Intel or PPC.
+	// Determine if we're running on Intel or non-Intel (PowerPC or ARM64).
 #if defined(__i386__) || defined(__x86_64__)
 	isAppRunningOnIntel = YES;
 #else
@@ -85,6 +85,8 @@
 	
 	RGBA8888ToNSColorValueTransformer *nsColorTransformer = [[[RGBA8888ToNSColorValueTransformer alloc] init] autorelease];
 	[NSValueTransformer setValueTransformer:nsColorTransformer forName:@"RGBA8888ToNSColorValueTransformer"];
+	
+	[[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(handleSystemAppearanceThemeChange:) name:@"AppleInterfaceThemeChangedNotification" object:nil];
 	
 	return self;
 }
@@ -228,6 +230,7 @@
 	
 	// Init the DS emulation core.
 	CocoaDSCore *newCore = [[[CocoaDSCore alloc] init] autorelease];
+	[cdsCoreController setContent:newCore];
 	
 	// Init the DS controller.
 	[[newCore cdsController] setDelegate:emuControl];
@@ -245,7 +248,6 @@
 	[emuControl setCdsSpeaker:newSpeaker];
 	
 	// Set up all the object controllers.
-	[cdsCoreController setContent:newCore];
 	[prefWindowController setContent:[prefWindowDelegate bindings]];
 	
 	[emuControl appInit];
@@ -372,6 +374,14 @@
 		[self application:NSApp openFile:[self delayedROMFileName]];
 		[self setDelayedROMFileName:nil];
 	}
+	
+	// Request hardware microphone permissions now. Hopefully, the user will address the
+	// permissions dialog before the ROM program actually needs the microphone input.
+	const NSInteger micPermStatus = [emuControl updateHostMicrophonePermissionStatus];
+	if (micPermStatus == 0) // (micPermStatus == AVAuthorizationStatusNotDetermined)
+	{
+		[emuControl changeHostMicrophonePermission:self];
+	}
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
@@ -449,6 +459,15 @@
 	[troubleshootingWindowDelegate switchViewByID:TROUBLESHOOTING_BUG_REPORT_VIEW_ID];
 	[troubleshootingWindow setTitle:NSSTRING_TITLE_BUG_REPORT_WINDOW_TITLE];
 	[troubleshootingWindow makeKeyAndOrderFront:sender];
+}
+
+- (IBAction) changeAppAppearance:(id)sender
+{
+	const NSInteger appAppearanceMode = [CocoaDSUtil getIBActionSenderTag:sender];
+	[[NSUserDefaults standardUserDefaults] setInteger:appAppearanceMode forKey:@"Debug_AppAppearanceMode"];
+	[[NSUserDefaults standardUserDefaults] synchronize];
+	
+	[self handleSystemAppearanceThemeChange:nil];
 }
 
 #pragma mark Class Methods
@@ -697,6 +716,35 @@
 	
 	// Set up the preferences window.
 	[prefWindowDelegate setupUserDefaults];
+}
+
+- (void) handleSystemAppearanceThemeChange:(NSNotification *) notification
+{
+	EmuControllerDelegate *emuControl = (EmuControllerDelegate *)[emuControlController content];
+	PreferencesWindowDelegate *prefWindowDelegate = (PreferencesWindowDelegate *)[prefWindow delegate];
+	
+	[emuControl handleAppearanceChange];
+	[prefWindowDelegate handleAppearanceChange];
+}
+
+#pragma mark NSUserInterfaceValidations Protocol
+
+- (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)theItem
+{
+	BOOL enable = YES;
+	const SEL theAction = [theItem action];
+	
+	if (theAction == @selector(changeAppAppearance:))
+	{
+		const NSInteger appAppearanceMode = [[NSUserDefaults standardUserDefaults] integerForKey:@"Debug_AppAppearanceMode"];
+		
+		if ([(id)theItem isMemberOfClass:[NSMenuItem class]])
+		{
+			[(NSMenuItem*)theItem setState:([theItem tag] == appAppearanceMode) ? GUI_STATE_ON : GUI_STATE_OFF];
+		}
+	}
+	
+	return enable;
 }
 
 @end

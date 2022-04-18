@@ -344,12 +344,18 @@
 	subnetMaskString_AP2 = @"0.0.0.0";
 	subnetMaskString_AP3 = @"0.0.0.0";
 	
+	_isRunningDarkMode = [CocoaDSUtil determineDarkModeAppearance];
+	
 	// Load the volume icons.
-	iconVolumeFull		= [[NSImage imageNamed:@"Icon_VolumeFull_16x16"] retain];
-	iconVolumeTwoThird	= [[NSImage imageNamed:@"Icon_VolumeTwoThird_16x16"] retain];
-	iconVolumeOneThird	= [[NSImage imageNamed:@"Icon_VolumeOneThird_16x16"] retain];
-	iconVolumeMute		= [[NSImage imageNamed:@"Icon_VolumeMute_16x16"] retain];
-	[bindings setObject:iconVolumeFull forKey:@"volumeIconImage"];
+	iconVolumeFull       = [[NSImage imageNamed:@"Icon_VolumeFull_16x16"] retain];
+	iconVolumeTwoThird   = [[NSImage imageNamed:@"Icon_VolumeTwoThird_16x16"] retain];
+	iconVolumeOneThird   = [[NSImage imageNamed:@"Icon_VolumeOneThird_16x16"] retain];
+	iconVolumeMute       = [[NSImage imageNamed:@"Icon_VolumeMute_16x16"] retain];
+	iconVolumeFullDM     = [[NSImage imageNamed:@"Icon_VolumeFull_DarkMode_16x16"] retain];
+	iconVolumeTwoThirdDM = [[NSImage imageNamed:@"Icon_VolumeTwoThird_DarkMode_16x16"] retain];
+	iconVolumeOneThirdDM = [[NSImage imageNamed:@"Icon_VolumeOneThird_DarkMode_16x16"] retain];
+	iconVolumeMuteDM     = [[NSImage imageNamed:@"Icon_VolumeMute_DarkMode_16x16"] retain];
+	[bindings setObject:((_isRunningDarkMode) ? iconVolumeFullDM : iconVolumeFull) forKey:@"volumeIconImage"];
 	
 	prefViewDict = nil;
 	
@@ -362,6 +368,10 @@
 	[iconVolumeTwoThird release];
 	[iconVolumeOneThird release];
 	[iconVolumeMute release];
+	[iconVolumeFullDM release];
+	[iconVolumeTwoThirdDM release];
+	[iconVolumeOneThirdDM release];
+	[iconVolumeMuteDM release];
 	[bindings release];
 	[prefViewDict release];
 	
@@ -672,19 +682,19 @@
 	
 	if (vol <= 0.0f)
 	{
-		newIconImage = iconVolumeMute;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeMuteDM : iconVolumeMute;
 	}
 	else if (vol > 0.0f && vol <= VOLUME_THRESHOLD_LOW)
 	{
-		newIconImage = iconVolumeOneThird;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeOneThirdDM : iconVolumeOneThird;
 	}
 	else if (vol > VOLUME_THRESHOLD_LOW && vol <= VOLUME_THRESHOLD_HIGH)
 	{
-		newIconImage = iconVolumeTwoThird;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeTwoThirdDM : iconVolumeTwoThird;
 	}
 	else
 	{
-		newIconImage = iconVolumeFull;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeFullDM : iconVolumeFull;
 	}
 	
 	if (newIconImage == iconImage)
@@ -1128,6 +1138,16 @@
 	else
 	{
 		[bindings setValue:NSSTRING_STATUS_NO_ROM_CHOSEN forKey:@"AutoloadRomName"];
+	}
+}
+
+- (void) handleAppearanceChange
+{
+	const BOOL newDarkModeState = [CocoaDSUtil determineDarkModeAppearance];
+	if (newDarkModeState != _isRunningDarkMode)
+	{
+		_isRunningDarkMode = newDarkModeState;
+		[self updateVolumeIcon:self];
 	}
 }
 

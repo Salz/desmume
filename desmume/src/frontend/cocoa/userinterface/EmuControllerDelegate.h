@@ -78,15 +78,18 @@ class AudioSampleBlockGenerator;
 	NSWindow *ndsErrorSheet;
 	NSTextField *ndsErrorStatusTextField;
 	NSView *exportRomSavePanelAccessoryView;
+	NSLevelIndicator *ndsMicLevelIndicator;
 	
 	NSPopUpButton *openglMSAAPopUpButton;
 	
 	BOOL isSaveStateEdited;
 	
+	BOOL isRunningDarkMode;
 	BOOL isWorking;
 	BOOL isRomLoading;
 	NSString *statusText;
 	float currentVolumeValue;
+	NSString *micStatusTooltip;
 	NSImage *currentMicStatusIcon;
 	NSImage *currentVolumeIcon;
 	BOOL isShowingSaveStateDialog;
@@ -104,7 +107,9 @@ class AudioSampleBlockGenerator;
 	float lastSetVolumeValue;
 	
 	NSImage *iconMicDisabled;
+	NSImage *iconMicDisabledDM;
 	NSImage *iconMicIdle;
+	NSImage *iconMicIdleNoHardware;
 	NSImage *iconMicActive;
 	NSImage *iconMicInClip;
 	NSImage *iconMicManualOverride;
@@ -112,6 +117,10 @@ class AudioSampleBlockGenerator;
 	NSImage *iconVolumeTwoThird;
 	NSImage *iconVolumeOneThird;
 	NSImage *iconVolumeMute;
+	NSImage *iconVolumeFullDM;
+	NSImage *iconVolumeTwoThirdDM;
+	NSImage *iconVolumeOneThirdDM;
+	NSImage *iconVolumeMuteDM;
 	NSImage *iconExecute;
 	NSImage *iconPause;
 	NSImage *iconSpeedNormal;
@@ -159,6 +168,7 @@ class AudioSampleBlockGenerator;
 @property (readonly) IBOutlet NSWindow *ndsErrorSheet;
 @property (readonly) IBOutlet NSTextField *ndsErrorStatusTextField;
 @property (readonly) IBOutlet NSView *exportRomSavePanelAccessoryView;
+@property (readonly) IBOutlet NSLevelIndicator *ndsMicLevelIndicator;
 
 @property (readonly) IBOutlet NSPopUpButton *openglMSAAPopUpButton;
 
@@ -169,12 +179,14 @@ class AudioSampleBlockGenerator;
 
 @property (readonly) CGFloat lastSetSpeedScalar;
 
+@property (assign) BOOL isRunningDarkMode;
 @property (assign) BOOL isWorking;
 @property (assign) BOOL isRomLoading;
 @property (assign) NSString *statusText;
 @property (assign) BOOL isHardwareMicAvailable;
 @property (assign) float currentMicGainValue;
 @property (assign) float currentVolumeValue;
+@property (assign) NSString *micStatusTooltip;
 @property (retain) NSImage *currentMicStatusIcon;
 @property (retain) NSImage *currentVolumeIcon;
 @property (assign) BOOL isShowingSaveStateDialog;
@@ -218,6 +230,7 @@ class AudioSampleBlockGenerator;
 - (IBAction) frameJump:(id)sender;
 - (IBAction) reset:(id)sender;
 - (IBAction) changeRomSaveType:(id)sender;
+- (IBAction) changeHostMicrophonePermission:(id)sender;
 
 // View Menu
 - (IBAction) toggleAllDisplays:(id)sender;
@@ -311,9 +324,11 @@ class AudioSampleBlockGenerator;
 - (void) updateDisplayPanelTitles;
 - (void) appInit;
 - (void) fillOpenGLMSAAMenu;
+- (NSInteger) updateHostMicrophonePermissionStatus;
 - (void) readUserDefaults;
 - (void) writeUserDefaults;
 - (void) restoreDisplayWindowStates;
 - (void) saveDisplayWindowStates;
+- (void) handleAppearanceChange;
 
 @end
