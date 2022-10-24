@@ -617,12 +617,7 @@ void GPUEngineBase::ParseReg_BGnHOFS()
 {
 	const IOREG_BGnHOFS &BGnHOFS = this->_IORegisterMap->BGnOFS[LAYERID].BGnHOFS;
 	this->_BGLayer[LAYERID].BGnHOFS = BGnHOFS;
-	
-#ifdef MSB_FIRST
-	this->_BGLayer[LAYERID].xOffset = LOCAL_TO_LE_16(BGnHOFS.value) & 0x01FF;
-#else
-	this->_BGLayer[LAYERID].xOffset = BGnHOFS.Offset;
-#endif
+	this->_BGLayer[LAYERID].xOffset = BGnHOFS.value & 0x01FF;
 }
 
 template <GPULayerID LAYERID>
@@ -630,12 +625,7 @@ void GPUEngineBase::ParseReg_BGnVOFS()
 {
 	const IOREG_BGnVOFS &BGnVOFS = this->_IORegisterMap->BGnOFS[LAYERID].BGnVOFS;
 	this->_BGLayer[LAYERID].BGnVOFS = BGnVOFS;
-	
-#ifdef MSB_FIRST
-	this->_BGLayer[LAYERID].yOffset = LOCAL_TO_LE_16(BGnVOFS.value) & 0x01FF;
-#else
-	this->_BGLayer[LAYERID].yOffset = BGnVOFS.Offset;
-#endif
+	this->_BGLayer[LAYERID].yOffset = BGnVOFS.value & 0x01FF;
 }
 
 template <GPULayerID LAYERID>
@@ -1127,22 +1117,8 @@ void GPUEngineBase::_RenderPixelIterate_Final(GPUEngineCompositorInfo &compInfo,
 	const s32 wmask = wh - 1;
 	const s32 hmask = ht - 1;
 	
-	IOREG_BGnX x;
-	IOREG_BGnY y;
-	x.value = LOCAL_TO_LE_32(param.BGnX.value);
-	y.value = LOCAL_TO_LE_32(param.BGnY.value);
-	
-#ifdef MSB_FIRST
-	// This only seems to work in the unrotated/unscaled case.
-	//
-	// All the working values should be correct on big-endian, but there is something else wrong going
-	// on somewhere else, but that remains a mystery at this time. In the meantime, this hack will have
-	// to remain in order to fix a bunch of games that use affine or extended layers, just as long as
-	// they don't perform any rotation/scaling.
-	// - rogerman, 2017-10-17
-	x.value = ((x.value & 0xFF000000) >> 16) | (x.value & 0x00FF00FF) | ((x.value & 0x0000FF00) << 16);
-	y.value = ((y.value & 0xFF000000) >> 16) | (y.value & 0x00FF00FF) | ((y.value & 0x0000FF00) << 16);
-#endif
+	IOREG_BGnX x = param.BGnX;
+	IOREG_BGnY y = param.BGnY;
 	
 	u8 index;
 	u16 srcColor;
@@ -1182,8 +1158,8 @@ void GPUEngineBase::_RenderPixelIterate_Final(GPUEngineCompositorInfo &compInfo,
 		}
 	}
 	
-	const s16 dx = (s16)LOCAL_TO_LE_16(param.BGnPA.value);
-	const s16 dy = (s16)LOCAL_TO_LE_16(param.BGnPC.value);
+	const s16 dx = param.BGnPA.value;
+	const s16 dy = param.BGnPC.value;
 	
 	for (size_t i = 0; i < lineWidth; i++, x.value+=dx, y.value+=dy)
 	{
@@ -1669,10 +1645,12 @@ void GPUEngineBase::_RenderLine_BGExtended(GPUEngineCompositorInfo &compInfo, co
 			
 			if (!MOSAIC)
 			{
-				const bool isRotationScaled = ( (param.BGnPA.value != 0x100) ||
-				                                (param.BGnPC.value !=     0) ||
-				                                (param.BGnX.value  !=     0) ||
-				                                (param.BGnY.value  != (0x100 * (s32)compInfo.line.indexNative)) );
+				const bool isRotationScaled = ( (param.BGnPA.Integer  != 1) ||
+				                                (param.BGnPA.Fraction != 0) ||
+				                                (param.BGnPC.value    != 0) ||
+				                                (param.BGnX.value     != 0) ||
+				                                (param.BGnY.Integer   != (s32)compInfo.line.indexNative) ||
+				                                (param.BGnY.Fraction  != 0) );
 				if (!isRotationScaled)
 				{
 					const size_t vramPixel = (size_t)((u8 *)MMU_gpu_map(compInfo.renderState.selectedBGLayer->BMPAddress) - MMU.ARM9_LCD) / sizeof(u16);
@@ -5908,10 +5886,7 @@ void GPUEventHandlerDefault::DidFrameBegin(const size_t line, const bool isFrame
 
 GPUClientFetchObject::GPUClientFetchObject()
 {
-	for (size_t i = 0; i < MAX_FRAMEBUFFER_PAGES; i++)
-	{
-		memset(&_fetchDisplayInfo[i], 0, sizeof(NDSDisplayInfo));
-	}
+	_id = 0;
 	
 	memset(_name, 0, sizeof(_name));
 	strncpy(_name, "Generic Video", sizeof(_name) - 1);
@@ -5921,6 +5896,11 @@ GPUClientFetchObject::GPUClientFetchObject()
 	
 	_clientData = NULL;
 	_lastFetchIndex = 0;
+	
+	for (size_t i = 0; i < MAX_FRAMEBUFFER_PAGES; i++)
+	{
+		memset(&_fetchDisplayInfo[i], 0, sizeof(NDSDisplayInfo));
+	}
 }
 
 void GPUClientFetchObject::Init()
@@ -6001,6 +5981,11 @@ const NDSDisplayInfo& GPUClientFetchObject::GetFetchDisplayInfoForBufferIndex(co
 void GPUClientFetchObject::SetFetchDisplayInfo(const NDSDisplayInfo &displayInfo)
 {
 	this->_fetchDisplayInfo[displayInfo.bufferIndex] = displayInfo;
+}
+
+const s32 GPUClientFetchObject::GetID() const
+{
+	return this->_id;
 }
 
 const char* GPUClientFetchObject::GetName() const

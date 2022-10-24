@@ -30,8 +30,11 @@
 
 
 
-u16 keyboard_cfg[NB_KEYS];
-u16 joypad_cfg[NB_KEYS];
+u32 keyboard_cfg[NB_KEYS];
+u32 joypad_cfg[NB_KEYS];
+
+static_assert(sizeof(keyboard_cfg) == sizeof(joypad_cfg), "");
+
 u16 nbr_joy;
 mouse_status mouse;
 static int fullscreen;
@@ -62,7 +65,7 @@ const char *key_names[NB_KEYS] =
  */
  
 /* Default joypad configuration */
-const u16 default_joypad_cfg[NB_KEYS] =
+const u32 default_joypad_cfg[NB_KEYS] =
   { 0x0201,  // A
     0x0200,  // B
     0x0205,  // select
@@ -88,7 +91,7 @@ void load_default_config(const u32 kbCfg[])
 }
 
 /* Set all buttons at once */
-static void set_joy_keys(const u16 joyCfg[])
+static void set_joy_keys(const u32 joyCfg[])
 {
   memcpy(joypad_cfg, joyCfg, sizeof(joypad_cfg));
 }
@@ -171,7 +174,7 @@ u16 lookup_joy_key (u16 keyval) {
 }
 
 /* Return keypad vector with given key set to 1 */
-u16 lookup_key (u16 keyval) {
+u32 lookup_key (u32 keyval) {
   int i;
   u16 Key = 0;
 
@@ -507,18 +510,14 @@ process_ctrls_event( SDL_Event& event,
             break;
         }
 
-        switch(event.key.keysym.sym){
-            case SDLK_LSHIFT:
-                shift_pressed |= 1;
-                break;
-            case SDLK_RSHIFT:
-                shift_pressed |= 2;
-                break;
-            default:
-                key = lookup_key(event.key.keysym.sym);
-                ADD_KEY( cfg->keypad, key );
-                break;
+        if (event.key.keysym.sym == SDLK_LSHIFT) {
+            shift_pressed |= 1;
+        } else if (event.key.keysym.sym == SDLK_RSHIFT) {
+            shift_pressed |= 2;
         }
+
+        key = lookup_key(event.key.keysym.sym);
+        ADD_KEY( cfg->keypad, key );
         break;
 
       case SDL_KEYUP:

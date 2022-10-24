@@ -635,7 +635,8 @@ bool GameInfo::isDSiEnhanced()
 
 bool GameInfo::isHomebrew()
 {
-	return ((header.ARM9src < 0x4000) && (T1ReadLong(header.logo, 0) != 0x51AEFF24) && (T1ReadLong(header.logo, 4) != 0x699AA221));
+	return ((header.ARM9src < 0x4000) && (T1ReadLong(header.logo, 0) != 0x51AEFF24) && (T1ReadLong(header.logo, 4) != 0x699AA221)) ||
+	       (!memcmp(header.gameCode, "####", 4)); // <- ndstool default signature
 }
 
 static int rom_init_path(const char *filename, const char *physicalName, const char *logicalFilename)
@@ -2478,19 +2479,24 @@ bool NDS_FakeBoot()
 
 	//since we're bypassing the code to decrypt the secure area, we need to make sure its decrypted first
 	//this has not been validated on big endian systems. it almost positively doesn't work.
+	bool hasSecureArea = false;
 	if (gameInfo.header.CRC16 != 0)
 	{
-		bool okRom = DecryptSecureArea((u8*)&gameInfo.header, (u8*)gameInfo.secureArea);
+		int okRom = DecryptSecureArea((u8*)&gameInfo.header, (u8*)gameInfo.secureArea);
 
-		if(!okRom) {
+		if(okRom == -1)
+		{
 			printf("Specified file is not a valid rom\n");
 			return false;
+		}
+		else if (okRom == 1)
+		{
+			hasSecureArea = true;
 		}
 	}
 	
 	//firmware loads the game card arm9 and arm7 programs as specified in rom header
 	{
-		bool hasSecureArea = ((gameInfo.romType == ROM_NDS) && (gameInfo.header.CRC16 != 0));
 		//copy the arm9 program to the address specified by rom header
 		u32 src = header->ARM9src;
 		u32 dst = header->ARM9cpy;

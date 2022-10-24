@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2011 Roger Manuel
-	Copyright (C) 2012-2018 DeSmuME team
+	Copyright (C) 2012-2022 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -708,7 +708,7 @@ static NSImage *iconCodeBreaker = nil;
 	
 	if (fileURL != nil)
 	{
-		listData->init((char *)[[fileURL path] cStringUsingEncoding:NSUTF8StringEncoding]);
+		listData->init((char *)[CocoaDSUtil cPathFromFileURL:fileURL]);
 		list = [[CocoaDSCheatManager cheatListWithListObject:listData] retain];
 	}
 	else
@@ -739,6 +739,7 @@ static NSImage *iconCodeBreaker = nil;
 	self.dbDate = nil;
 	[list release];
 	delete (CHEATS *)self.listData;
+	cheats = NULL;
 	
 	if (isUsingDummyRWlock)
 	{
@@ -965,7 +966,7 @@ static NSImage *iconCodeBreaker = nil;
 	
 	CHEATSEXPORT *exporter = new CHEATSEXPORT();
 	
-	BOOL result = exporter->load((char *)[[fileURL path] cStringUsingEncoding:NSUTF8StringEncoding]);
+	BOOL result = exporter->load((char *)[CocoaDSUtil cPathFromFileURL:fileURL]);
 	if (!result)
 	{
 		if (error != nil)

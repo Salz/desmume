@@ -53,7 +53,10 @@
 #endif
 
 #ifdef __GNUC__
-	#ifdef __ALTIVEC__
+// Our AltiVec code assumes that its being run on a big-endian system. While
+// the ppcle and ppc64le architectures do exist, our AltiVec code does not
+// support little-endian right now.
+	#if defined(__ALTIVEC__) && defined(MSB_FIRST) && (MSB_FIRST > 0)
 		#define ENABLE_ALTIVEC
 	#endif
 
@@ -262,12 +265,12 @@ typedef u32 uint32;
 	#ifndef __APPLE_ALTIVEC__
 		#include <altivec.h>
 	#endif
-typedef vector unsigned char v128u8;
-typedef vector signed char v128s8;
-typedef vector unsigned short v128u16;
-typedef vector signed short v128s16;
-typedef vector unsigned int v128u32;
-typedef vector signed int v128s32;
+typedef __vector unsigned char v128u8;
+typedef __vector signed char v128s8;
+typedef __vector unsigned short v128u16;
+typedef __vector signed short v128s16;
+typedef __vector unsigned int v128u32;
+typedef __vector signed int v128s32;
 #endif
 
 #ifdef ENABLE_NEON_A64

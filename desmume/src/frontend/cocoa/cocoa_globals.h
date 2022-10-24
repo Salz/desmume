@@ -16,11 +16,11 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define STRING_DESMUME_WEBSITE						"http://desmume.org"
+#define STRING_DESMUME_WEBSITE						"https://desmume.org"
 #define STRING_DESMUME_SHORT_DESCRIPTION			"Nintendo DS Emulator"
-#define STRING_DESMUME_FORUM_SITE					"http://forums.desmume.org/index.php"
-#define STRING_DESMUME_TECH_SUPPORT_SITE			"http://forums.desmume.org/viewforum.php?id=4"
-#define STRING_DESMUME_BUG_REPORT_SITE				"https://github.com/TASVideos/desmume/issues"
+#define STRING_DESMUME_FORUM_SITE					"https://forums.desmume.org/index.php"
+#define STRING_DESMUME_TECH_SUPPORT_SITE			"https://forums.desmume.org/viewforum.php?id=4"
+#define STRING_DESMUME_BUG_REPORT_SITE				"https://github.com/TASEmulators/desmume/issues"
 
 // User Interface Localized Strings
 #define NSSTRING_TITLE_OPEN_ROM_PANEL				NSLocalizedString(@"Open ROM", nil)
@@ -354,7 +354,8 @@ enum
 	MESSAGE_SET_EMULATION_FLAGS,
 	
 	// Video Messages
-	MESSAGE_FETCH_AND_PUSH_VIDEO,
+	MESSAGE_FETCH_ONLY,
+	MESSAGE_FETCH_AND_PERFORM_ACTIONS,
 	MESSAGE_RECEIVE_GPU_FRAME,
 	MESSAGE_CHANGE_VIEW_PROPERTIES,
 	MESSAGE_REDRAW_VIEW,
@@ -394,4 +395,25 @@ enum
 {
 	PADDLE_CONTROL_RELATIVE = 0,
 	PADDLE_CONTROL_DIRECT
+};
+
+enum
+{
+	GPUClientFetchObjectIDMask_Async       = (1 << 0),
+	GPUClientFetchObjectIDMask_DisplayLink = (1 << 1),
+	GPUClientFetchObjectIDMask_OpenGL      = (1 << 2),
+	GPUClientFetchObjectIDMask_Metal       = (1 << 3),
+	GPUClientFetchObjectIDMask_macOS       = (1 << 4),
+	GPUClientFetchObjectIDMask_OpenEmu     = (1 << 5)
+};
+
+enum
+{
+	GPUClientFetchObjectID_Default            = 0,
+	GPUClientFetchObjectID_GenericAsync       = GPUClientFetchObjectIDMask_Async,
+	GPUClientFetchObjectID_GenericDisplayLink = GPUClientFetchObjectIDMask_Async | GPUClientFetchObjectIDMask_DisplayLink,
+	GPUClientFetchObjectID_GenericOpenGL      = GPUClientFetchObjectIDMask_Async | GPUClientFetchObjectIDMask_DisplayLink | GPUClientFetchObjectIDMask_OpenGL,
+	GPUClientFetchObjectID_MacOpenGL          = GPUClientFetchObjectIDMask_Async | GPUClientFetchObjectIDMask_DisplayLink | GPUClientFetchObjectIDMask_OpenGL | GPUClientFetchObjectIDMask_macOS,
+	GPUClientFetchObjectID_MacMetal           = GPUClientFetchObjectIDMask_Async | GPUClientFetchObjectIDMask_DisplayLink | GPUClientFetchObjectIDMask_Metal  | GPUClientFetchObjectIDMask_macOS,
+	GPUClientFetchObjectID_OpenEmu            = GPUClientFetchObjectIDMask_Async | GPUClientFetchObjectIDMask_DisplayLink | GPUClientFetchObjectIDMask_OpenGL | GPUClientFetchObjectIDMask_OpenEmu
 };

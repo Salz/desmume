@@ -670,7 +670,7 @@ struct modify_key_ctx {
 
 static u16 keys_latch = 0;
 static u16 gdk_shift_pressed = 0;
-u16 Keypad_Temp[NB_KEYS];
+u32 Keypad_Temp[NB_KEYS];
 
 class configured_features : public CommandLine
 {
@@ -2365,7 +2365,7 @@ static void Edit_Joystick_Controls()
 
     switch (gtk_dialog_run(GTK_DIALOG(ecDialog))) {
     case GTK_RESPONSE_OK:
-        memcpy(&joypad_cfg, &Keypad_Temp, sizeof(keyboard_cfg));
+        memcpy(&joypad_cfg, &Keypad_Temp, sizeof(joypad_cfg));
         desmume_config_update_joykeys(keyfile);
         break;
     case GTK_RESPONSE_CANCEL:

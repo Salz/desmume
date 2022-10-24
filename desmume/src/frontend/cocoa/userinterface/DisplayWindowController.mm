@@ -1295,7 +1295,8 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 	[newDisplayOutput setClientDisplay3DView:cdv];
 	
 	NSString *fontPath = [[NSBundle mainBundle] pathForResource:@"SourceSansPro-Bold" ofType:@"otf"];
-	cdv->Get3DPresenter()->SetHUDFontPath([fontPath cStringUsingEncoding:NSUTF8StringEncoding]);
+	cdv->Get3DPresenter()->SetHUDFontPath([CocoaDSUtil cPathFromFilePath:fontPath]);
+	cdv->Get3DPresenter()->SetHUDRenderMipmapped(true);
 	
 	if (scaleFactor != 1.0f)
 	{
@@ -1708,7 +1709,7 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 		
 		cdv->GetNDSPoint(props,
 						 props.clientWidth / scaleFactor, props.clientHeight / scaleFactor,
-						 (int)buttonNumber, isInitialMouseDown, clientLoc.x, clientLoc.y, x, y);
+						 clientLoc.x, clientLoc.y, (int)buttonNumber, isInitialMouseDown, x, y);
 	}
 	
 	MacInputDevicePropertiesEncoder *inputEncoder = [inputManager inputEncoder];
@@ -1978,16 +1979,15 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 	{
 		DisplayWindowController *windowController = (DisplayWindowController *)[[self window] delegate];
 		CocoaDSCore *cdsCore = (CocoaDSCore *)[[[windowController emuControl] cdsCoreController] content];
-		CocoaDSGPU *cdsGPU = [cdsCore cdsGPU];
-		MacClientSharedObject *macSharedData = [cdsGPU sharedData];
+		MacGPUFetchObjectDisplayLink *dlFetchObj = (MacGPUFetchObjectDisplayLink *)[[cdsCore cdsGPU] fetchObject];
 		
 		if (newState)
 		{
-			[macSharedData incrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->IncrementViewsUsingDirectToCPUFiltering();
 		}
 		else
 		{
-			[macSharedData decrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->DecrementViewsUsingDirectToCPUFiltering();
 		}
 		
 		[[self cdsVideoOutput] signalMessage:MESSAGE_RELOAD_REPROCESS_REDRAW];
@@ -2009,16 +2009,15 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 	{
 		DisplayWindowController *windowController = (DisplayWindowController *)[[self window] delegate];
 		CocoaDSCore *cdsCore = (CocoaDSCore *)[[[windowController emuControl] cdsCoreController] content];
-		CocoaDSGPU *cdsGPU = [cdsCore cdsGPU];
-		MacClientSharedObject *macSharedData = [cdsGPU sharedData];
+		MacGPUFetchObjectDisplayLink *dlFetchObj = (MacGPUFetchObjectDisplayLink *)[[cdsCore cdsGPU] fetchObject];
 		
 		if (newState)
 		{
-			[macSharedData incrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->IncrementViewsUsingDirectToCPUFiltering();
 		}
 		else
 		{
-			[macSharedData decrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->DecrementViewsUsingDirectToCPUFiltering();
 		}
 	}
 	
@@ -2051,16 +2050,15 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 	{
 		DisplayWindowController *windowController = (DisplayWindowController *)[[self window] delegate];
 		CocoaDSCore *cdsCore = (CocoaDSCore *)[[[windowController emuControl] cdsCoreController] content];
-		CocoaDSGPU *cdsGPU = [cdsCore cdsGPU];
-		MacClientSharedObject *macSharedData = [cdsGPU sharedData];
+		MacGPUFetchObjectDisplayLink *dlFetchObj = (MacGPUFetchObjectDisplayLink *)[[cdsCore cdsGPU] fetchObject];
 		
 		if (newState)
 		{
-			[macSharedData incrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->IncrementViewsUsingDirectToCPUFiltering();
 		}
 		else
 		{
-			[macSharedData decrementViewsUsingDirectToCPUFiltering];
+			dlFetchObj->DecrementViewsUsingDirectToCPUFiltering();
 		}
 	}
 	
@@ -2076,17 +2074,18 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 {
 	DisplayWindowController *windowController = (DisplayWindowController *)[[self window] delegate];
 	CocoaDSCore *cdsCore = (CocoaDSCore *)[[[windowController emuControl] cdsCoreController] content];
-	CocoaDSGPU *cdsGPU = [cdsCore cdsGPU];
-	MacClientSharedObject *macSharedData = [cdsGPU sharedData];
+	MacGPUFetchObjectDisplayLink *dlFetchObj = (MacGPUFetchObjectDisplayLink *)[[cdsCore cdsGPU] fetchObject];
 	
 #ifdef ENABLE_APPLE_METAL
 	BOOL isMetalLayer = NO;
 	
-	if ((macSharedData != nil) && [macSharedData isKindOfClass:[MetalDisplayViewSharedData class]])
+	if ( (dlFetchObj->GetClientData() != nil) && (dlFetchObj->GetID() == GPUClientFetchObjectID_MacMetal) )
 	{
-		if ([(MetalDisplayViewSharedData *)macSharedData device] != nil)
+		MetalDisplayViewSharedData *metalSharedData = (MetalDisplayViewSharedData *)dlFetchObj->GetClientData();
+		
+		if ([metalSharedData device] != nil)
 		{
-			MacMetalDisplayView *macMTLCDV = new MacMetalDisplayView(macSharedData);
+			MacMetalDisplayView *macMTLCDV = new MacMetalDisplayView(metalSharedData);
 			macMTLCDV->Init();
 			
 			localLayer = macMTLCDV->GetCALayer();
@@ -2096,10 +2095,17 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 	else
 #endif
 	{
-		MacOGLDisplayView *macOGLCDV = new MacOGLDisplayView(macSharedData);
+		MacOGLDisplayView *macOGLCDV = new MacOGLDisplayView((MacOGLClientFetchObject *)dlFetchObj);
 		macOGLCDV->Init();
 		
 		localLayer = macOGLCDV->GetCALayer();
+		
+#if defined(MAC_OS_X_VERSION_10_7) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7)
+		if ([[self window] respondsToSelector:@selector(backingScaleFactor)] && [localLayer respondsToSelector:@selector(setContentsScale:)])
+		{
+			[localLayer setContentsScale:[[self window] backingScaleFactor]];
+		}
+#endif
 		
 		// For macOS 10.8 Mountain Lion and later, we can use the CAOpenGLLayer directly. But for
 		// earlier versions of macOS, using the CALayer directly will cause too many strange issues,
@@ -2268,7 +2274,8 @@ static std::unordered_map<NSScreen *, DisplayWindowController *> _screenMap; // 
 		}
 		else if ([localLayer isKindOfClass:[CAOpenGLLayer class]])
 		{
-			[localLayer setBounds:CGRectMake(0.0f, 0.0f, props.clientWidth, props.clientHeight)];
+			const double scaleFactor = [[self cdsVideoOutput] clientDisplay3DView]->Get3DPresenter()->GetScaleFactor();
+			[localLayer setBounds:CGRectMake(0.0f, 0.0f, props.clientWidth / scaleFactor, props.clientHeight / scaleFactor)];
 		}
 #ifdef ENABLE_APPLE_METAL
 		else if ([localLayer isKindOfClass:[CAMetalLayer class]])

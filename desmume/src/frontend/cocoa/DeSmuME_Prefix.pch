@@ -26,6 +26,7 @@
 #define HAVE_LIBZ
 //#define HAVE_LUA
 //#define HAVE_AV_CONFIG_H
+//#define EXPERIMENTAL_WIFI_COMM
 
 #define FT2_BUILD_LIBRARY
 #define DARWIN_NO_CARBON
@@ -35,7 +36,7 @@
 
 #define GL_SILENCE_DEPRECATION
 
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
 	#define HAVE_JIT
 #endif
 

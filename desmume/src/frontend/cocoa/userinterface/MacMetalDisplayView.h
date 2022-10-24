@@ -26,6 +26,8 @@
 #include <mach/semaphore.h>
 #include <mach/sync_policy.h>
 
+#include <queue>
+
 #import "DisplayViewCALayer.h"
 #import "../cocoa_GPU.h"
 #import "../cocoa_util.h"
@@ -100,7 +102,7 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 	id<MTLComputePipelineState> _fetch666ConvertOnlyPipeline;
 	id<MTLComputePipelineState> _fetch888ConvertOnlyPipeline;
 	id<MTLComputePipelineState> deposterizePipeline;
-	id<MTLRenderPipelineState> hudPipeline;
+	id<MTLRenderPipelineState> hudBGRAPipeline;
 	id<MTLRenderPipelineState> hudRGBAPipeline;
 	
 	id<MTLSamplerState> samplerHUDBox;
@@ -149,7 +151,7 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 @property (readonly, nonatomic) id<MTLLibrary> defaultLibrary;
 
 @property (readonly, nonatomic) id<MTLComputePipelineState> deposterizePipeline;
-@property (readonly, nonatomic) id<MTLRenderPipelineState> hudPipeline;
+@property (readonly, nonatomic) id<MTLRenderPipelineState> hudBGRAPipeline;
 @property (readonly, nonatomic) id<MTLRenderPipelineState> hudRGBAPipeline;
 @property (readonly, nonatomic) id<MTLSamplerState> samplerHUDBox;
 @property (readonly, nonatomic) id<MTLSamplerState> samplerHUDText;
@@ -186,7 +188,6 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 	MTLRenderPassDescriptor *_outputRenderPassDesc;
 	MTLRenderPassColorAttachmentDescriptor *colorAttachment0Desc;
 	id<MTLComputePipelineState> pixelScalePipeline;
-	id<MTLRenderPipelineState> outputRGBAPipeline;
 	id<MTLRenderPipelineState> outputDrawablePipeline;
 	MTLPixelFormat drawableFormat;
 	
@@ -227,7 +228,6 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 @property (assign, nonatomic) MetalDisplayViewSharedData *sharedData;
 @property (readonly, nonatomic) MTLRenderPassColorAttachmentDescriptor *colorAttachment0Desc;
 @property (retain) id<MTLComputePipelineState> pixelScalePipeline;
-@property (retain) id<MTLRenderPipelineState> outputRGBAPipeline;
 @property (retain) id<MTLRenderPipelineState> outputDrawablePipeline;
 @property (assign) MTLPixelFormat drawableFormat;
 @property (retain) id<MTLBuffer> bufCPUFilterDstMain;
@@ -255,7 +255,8 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 			   hudPipelineState:(id<MTLRenderPipelineState>)hudPipelineState
 					texDisplays:(MetalTexturePair)texDisplay
 						   mrfi:(MetalRenderFrameInfo)mrfi
-						doYFlip:(BOOL)willFlip;
+						doYFlip:(BOOL)willFlip
+					   doSwapRB:(BOOL)willSwapRB;
 - (void) renderStartAtIndex:(uint8_t)index;
 - (void) renderFinishAtIndex:(uint8_t)index;
 - (ClientDisplayBufferState) renderBufferStateAtIndex:(uint8_t)index;
@@ -269,7 +270,7 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 	MacDisplayLayeredView *_cdv;
 	MacMetalDisplayPresenterObject *presenterObject;
 	dispatch_semaphore_t _semDrawable;
-	id<CAMetalDrawable> _currentDrawable;
+	std::queue< id<CAMetalDrawable> > *_drawableQueue;
 	id<CAMetalDrawable> layerDrawable0;
 	id<CAMetalDrawable> layerDrawable1;
 	id<CAMetalDrawable> layerDrawable2;
@@ -292,7 +293,7 @@ typedef DisplayViewShaderProperties DisplayViewShaderProperties;
 
 #pragma mark -
 
-class MacMetalFetchObject : public GPUClientFetchObject
+class MacMetalFetchObject : public MacGPUFetchObjectDisplayLink
 {
 protected:
 	bool _useDirectToCPUFilterPipeline;
@@ -311,6 +312,8 @@ public:
 	virtual void CopyFromSrcClone(uint32_t *dstBufferPtr, const NDSDisplayID displayID, const u8 bufferIndex);
 	virtual void SetFetchBuffers(const NDSDisplayInfo &currentDisplayInfo);
 	virtual void FetchFromBufferIndex(const u8 index);
+	
+	virtual void FlushMultipleViews(const std::vector<ClientDisplay3DView *> &cdvFlushList, const CVTimeStamp *timeStampNow, const CVTimeStamp *timeStampOutput);
 };
 
 #pragma mark -

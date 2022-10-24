@@ -290,8 +290,13 @@ typedef union
 	
 	struct
 	{
+#ifndef MSB_FIRST
 		u16 Fraction:8;
 		s16 Integer:8;
+#else
+		s16 Integer:8;
+		u16 Fraction:8;
+#endif
 	};
 } IOREG_BGnPA;								// 0x400x020, 0x400x030: BGn rotation/scaling parameter A (Engine A+B)
 typedef IOREG_BGnPA IOREG_BGnPB;			// 0x400x022, 0x400x032: BGn rotation/scaling parameter B (Engine A+B)
@@ -1991,6 +1996,7 @@ public:
 class GPUClientFetchObject
 {
 protected:
+	s32 _id;
 	char _name[256];
 	char _description[256];
 	
@@ -2009,6 +2015,7 @@ public:
 	virtual void SetFetchBuffers(const NDSDisplayInfo &currentDisplayInfo);
 	virtual void FetchFromBufferIndex(const u8 index);
 	
+	const s32 GetID() const;
 	const char* GetName() const;
 	const char* GetDescription() const;
 	
