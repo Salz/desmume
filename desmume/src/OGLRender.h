@@ -1,7 +1,7 @@
 /*
 	Copyright (C) 2006 yopyop
 	Copyright (C) 2006-2007 shash
-	Copyright (C) 2008-2022 DeSmuME team
+	Copyright (C) 2008-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -293,7 +293,7 @@ EXTERNOGLEXT(PFNGLDELETESYNCPROC, glDeleteSync) // Core in v3.2
 #define OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MINOR			2
 #define OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_REVISION		0
 
-#define OGLRENDER_VERT_INDEX_BUFFER_COUNT	(POLYLIST_SIZE * 6)
+#define OGLRENDER_VERT_INDEX_BUFFER_COUNT	(CLIPPED_POLYLIST_SIZE * 6)
 
 // Assign the FBO attachments for the main geometry render
 #ifdef OGLRENDER_3_2_H
@@ -366,23 +366,26 @@ enum OGLPolyDrawMode
 
 union GLvec2
 {
+	GLfloat vec[2];
 	struct { GLfloat x, y; };
-	GLfloat v[2];
 };
+typedef union GLvec2 GLvec2;
 
 union GLvec3
 {
+	GLfloat vec[3];
 	struct { GLfloat r, g, b; };
 	struct { GLfloat x, y, z; };
-	GLfloat v[3];
 };
+typedef union GLvec3 GLvec3;
 
 union GLvec4
 {
+	GLfloat vec[4];
 	struct { GLfloat r, g, b, a; };
 	struct { GLfloat x, y, z, w; };
-	GLfloat v[4];
 };
+typedef union GLvec4 GLvec4;
 
 struct OGLVertex
 {
@@ -390,6 +393,7 @@ struct OGLVertex
 	GLvec2 texCoord;
 	GLvec3 color;
 };
+typedef struct OGLVertex OGLVertex;
 
 struct OGLRenderStates
 {
@@ -405,6 +409,7 @@ struct OGLRenderStates
 	GLvec4 edgeColor[8];
 	GLvec4 toonColor[32];
 };
+typedef struct OGLRenderStates OGLRenderStates;
 
 union OGLPolyStates
 {
@@ -425,9 +430,11 @@ union OGLPolyStates
 		u8 TexSizeShiftS:3;
 		u8 TexSizeShiftT:3;
 		
-		u8 :8;
+		u8 IsBackFacing:1;
+		u8 :7;
 	};
 };
+typedef union OGLPolyStates OGLPolyStates;
 
 union OGLGeometryFlags
 {
@@ -536,6 +543,7 @@ struct OGLRenderRef
 	
 	GLuint fboClearImageID;
 	GLuint fboRenderID;
+	GLuint fboFramebufferFlipID;
 	GLuint fboMSIntermediateRenderID;
 	GLuint selectedRenderingFBO;
 	
@@ -581,6 +589,7 @@ struct OGLRenderRef
 	GLint uniformTexSingleBitAlpha[256];
 	GLint uniformTexDrawOpaque[256];
 	GLint uniformDrawModeDepthEqualsTest[256];
+	GLint uniformPolyIsBackFacing[256];
 	
 	GLint uniformPolyStateIndex[256];
 	GLfloat uniformPolyDepthOffset[256];
@@ -591,21 +600,17 @@ struct OGLRenderRef
 	GLuint vaoPostprocessStatesID;
 	
 	// Client-side Buffers
+	GLfloat *position4fBuffer;
+	GLfloat *texCoord2fBuffer;
 	GLfloat *color4fBuffer;
 	CACHE_ALIGN GLushort vertIndexBuffer[OGLRENDER_VERT_INDEX_BUFFER_COUNT];
 	CACHE_ALIGN GLushort workingCIColorBuffer[GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN GLuint workingCIDepthStencilBuffer[2][GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN GLuint workingCIFogAttributesBuffer[2][GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
-	
-	// Vertex Attributes Pointers
-	GLvoid *vtxPtrPosition;
-	GLvoid *vtxPtrTexCoord;
-	GLvoid *vtxPtrColor;
 };
+typedef struct OGLRenderRef OGLRenderRef;
 
 struct GFX3D_State;
-struct POLYLIST;
-struct INDEXLIST;
 struct POLY;
 class OpenGLRenderer;
 
@@ -698,8 +703,8 @@ private:
 	unsigned int versionRevision;
 	
 private:
-	Render3DError _FlushFramebufferFlipAndConvertOnCPU(const FragmentColor *__restrict srcFramebuffer,
-													   FragmentColor *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16,
+	Render3DError _FlushFramebufferFlipAndConvertOnCPU(const Color4u8 *__restrict srcFramebuffer,
+													   Color4u8 *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16,
 													   bool doFramebufferFlip, bool doFramebufferConvert);
 	
 protected:
@@ -723,8 +728,8 @@ protected:
 	bool _emulateDepthLEqualPolygonFacing;
 	bool _isDepthLEqualPolygonFacingSupported;
 	
-	FragmentColor *_mappedFramebuffer;
-	FragmentColor *_workingTextureUnpackBuffer;
+	Color4u8 *_mappedFramebuffer;
+	Color4u8 *_workingTextureUnpackBuffer;
 	bool _pixelReadNeedsFinish;
 	bool _needsZeroDstAlphaPass;
 	size_t _currentPolyIndex;
@@ -738,13 +743,12 @@ protected:
 	
 	bool _enableMultisampledRendering;
 	int _selectedMultisampleSize;
-	bool _isPolyFrontFacing[POLYLIST_SIZE];
 	size_t _clearImageIndex;
 	
-	Render3DError FlushFramebuffer(const FragmentColor *__restrict srcFramebuffer, FragmentColor *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16);
+	Render3DError FlushFramebuffer(const Color4u8 *__restrict srcFramebuffer, Color4u8 *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16);
 	OpenGLTexture* GetLoadedTextureFromPolygon(const POLY &thePoly, bool enableTexturing);
 	
-	template<OGLPolyDrawMode DRAWMODE> size_t DrawPolygonsForIndexRange(const CPoly *clippedPolyList, const size_t clippedPolyCount, size_t firstIndex, size_t lastIndex, size_t &indexOffset, POLYGON_ATTR &lastPolyAttr);
+	template<OGLPolyDrawMode DRAWMODE> size_t DrawPolygonsForIndexRange(const POLY *rawPolyList, const CPoly *clippedPolyList, const size_t clippedPolyCount, size_t firstIndex, size_t lastIndex, size_t &indexOffset, POLYGON_ATTR &lastPolyAttr);
 	template<OGLPolyDrawMode DRAWMODE> Render3DError DrawAlphaTexturePolygon(const GLenum polyPrimitive,
 																			 const GLsizei vertIndexCount,
 																			 const GLushort *indexBufferPtr,
@@ -807,7 +811,7 @@ protected:
 	
 	virtual Render3DError DrawShadowPolygon(const GLenum polyPrimitive, const GLsizei vertIndexCount, const GLushort *indexBufferPtr, const bool performDepthEqualTest, const bool enableAlphaDepthWrite, const bool isTranslucent, const u8 opaquePolyID) = 0;
 	virtual void SetPolygonIndex(const size_t index) = 0;
-	virtual Render3DError SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer) = 0;
+	virtual Render3DError SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer, bool isBackFacing) = 0;
 	
 public:
 	OpenGLRenderer();
@@ -827,7 +831,7 @@ public:
 	void SetVersion(unsigned int major, unsigned int minor, unsigned int revision);
 	bool IsVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision) const;
 	
-	virtual FragmentColor* GetFramebuffer();
+	virtual Color4u8* GetFramebuffer();
 	virtual GLsizei GetLimitedMultisampleSize() const;
 	
 	Render3DError ApplyRenderingSettings(const GFX3D_State &renderState);
@@ -876,24 +880,24 @@ protected:
 	virtual void _SetupGeometryShaders(const OGLGeometryFlags flags);
 	virtual Render3DError EnableVertexAttributes();
 	virtual Render3DError DisableVertexAttributes();
-	virtual Render3DError ZeroDstAlphaPass(const CPoly *clippedPolyList, const size_t clippedPolyCount, bool enableAlphaBlending, size_t indexOffset, POLYGON_ATTR lastPolyAttr);
+	virtual Render3DError ZeroDstAlphaPass(const POLY *rawPolyList, const CPoly *clippedPolyList, const size_t clippedPolyCount, const size_t clippedPolyOpaqueCount, bool enableAlphaBlending, size_t indexOffset, POLYGON_ATTR lastPolyAttr);
 	virtual void _ResolveWorkingBackFacing();
 	virtual void _ResolveGeometry();
 	virtual Render3DError ReadBackPixels();
 	
 	// Base rendering methods
-	virtual Render3DError BeginRender(const GFX3D &engine);
+	virtual Render3DError BeginRender(const GFX3D_State &renderState, const GFX3D_GeometryList &renderGList);
 	virtual Render3DError RenderGeometry();
 	virtual Render3DError PostprocessFramebuffer();
 	virtual Render3DError EndRender();
 	
 	virtual Render3DError ClearUsingImage(const u16 *__restrict colorBuffer, const u32 *__restrict depthBuffer, const u8 *__restrict fogBuffer, const u8 opaquePolyID);
-	virtual Render3DError ClearUsingValues(const FragmentColor &clearColor6665, const FragmentAttributes &clearAttributes);
+	virtual Render3DError ClearUsingValues(const Color4u8 &clearColor6665, const FragmentAttributes &clearAttributes);
 	
 	virtual void SetPolygonIndex(const size_t index);
-	virtual Render3DError SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer);
+	virtual Render3DError SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer, bool isBackFacing);
 	virtual Render3DError SetupTexture(const POLY &thePoly, size_t polyRenderIndex);
-	virtual Render3DError SetupViewport(const u32 viewportValue);
+	virtual Render3DError SetupViewport(const GFX3D_Viewport viewport);
 	
 	virtual Render3DError DrawShadowPolygon(const GLenum polyPrimitive, const GLsizei vertIndexCount, const GLushort *indexBufferPtr, const bool performDepthEqualTest, const bool enableAlphaDepthWrite, const bool isTranslucent, const u8 opaquePolyID);
 	
@@ -916,7 +920,7 @@ protected:
 	virtual Render3DError EnableVertexAttributes();
 	virtual Render3DError DisableVertexAttributes();
 	
-	virtual Render3DError BeginRender(const GFX3D &engine);
+	virtual Render3DError BeginRender(const GFX3D_State &renderState, const GFX3D_GeometryList &renderGList);
 	
 	virtual Render3DError SetupTexture(const POLY &thePoly, size_t polyRenderIndex);
 };

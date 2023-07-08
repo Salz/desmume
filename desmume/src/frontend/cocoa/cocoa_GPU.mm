@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2013-2022 DeSmuME team
+	Copyright (C) 2013-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -372,16 +372,8 @@ GPU3DInterface *core3DList[GPU_3D_RENDERER_COUNT+1] = {
 		rendererID = CORE3DLIST_SWRASTERIZE;
 	}
 	
-#if defined(__ppc__) || defined(__ppc64__)
-	if ( (rendererID != CORE3DLIST_NULL) && (rendererID != CORE3DLIST_SWRASTERIZE) )
-	{
-		puts("DeSmuME: PowerPC Macs only support SoftRasterizer; falling back to SoftRasterizer.");
-		rendererID = CORE3DLIST_SWRASTERIZE;
-	}
-#endif
-	
 	gpuEvent->ApplyRender3DSettingsLock();
-	GPU->Set3DRendererByID(rendererID);
+	GPU->Set3DRendererByID((int)rendererID);
 	gpuEvent->ApplyRender3DSettingsUnlock();
 }
 
@@ -484,7 +476,7 @@ GPU3DInterface *core3DList[GPU_3D_RENDERER_COUNT+1] = {
 	
 	gpuEvent->ApplyRender3DSettingsLock();
 	
-	CommonSettings.num_cores = numberCores;
+	CommonSettings.num_cores = (int)numberCores;
 	
 	if (renderingEngineID == RENDERID_SOFTRASTERIZER)
 	{
@@ -1871,7 +1863,7 @@ bool OSXOpenGLRendererFramebufferDidResize(const bool isFBOSupported, size_t w, 
 	
 	// Create a PBuffer if FBOs are not supported.
 	SILENCE_DEPRECATION_MACOS_10_7( CGLPBufferObj newPBuffer = NULL );
-	SILENCE_DEPRECATION_MACOS_10_7( CGLError error = CGLCreatePBuffer(w, h, GL_TEXTURE_2D, GL_RGBA, 0, &newPBuffer) );
+	SILENCE_DEPRECATION_MACOS_10_7( CGLError error = CGLCreatePBuffer((GLsizei)w, (GLsizei)h, GL_TEXTURE_2D, GL_RGBA, 0, &newPBuffer) );
 	
 	if ( (newPBuffer == NULL) || (error != kCGLNoError) )
 	{

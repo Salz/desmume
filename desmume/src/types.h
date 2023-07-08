@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2005 Guillaume Duhamel
-	Copyright (C) 2008-2022 DeSmuME team
+	Copyright (C) 2008-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -165,8 +165,15 @@
 	#define CACHE_ALIGN_SIZE 32
 #endif
 
+#if defined(__sparc_v9__) || defined(__sparcv9)
+	#define PAGE_ALIGN_SIZE 8192 // UltraSPARC architecture uses 8 KB pages.
+#else
+	#define PAGE_ALIGN_SIZE 4096 // Most architectures use 4 KB pages.
+#endif
+
 //use this for example when you want a byte value to be better-aligned
 #define CACHE_ALIGN DS_ALIGN(CACHE_ALIGN_SIZE)
+#define PAGE_ALIGN DS_ALIGN(PAGE_ALIGN_SIZE)
 #define FAST_ALIGN DS_ALIGN(4)
 //---------------------------------------------
 
@@ -271,6 +278,15 @@ typedef __vector unsigned short v128u16;
 typedef __vector signed short v128s16;
 typedef __vector unsigned int v128u32;
 typedef __vector signed int v128s32;
+typedef __vector float v128f32;
+
+#define AVAILABLE_TYPE_v128u8
+#define AVAILABLE_TYPE_v128s8
+#define AVAILABLE_TYPE_v128u16
+#define AVAILABLE_TYPE_v128s16
+#define AVAILABLE_TYPE_v128u32
+#define AVAILABLE_TYPE_v128s32
+#define AVAILABLE_TYPE_v128f32
 #endif
 
 #ifdef ENABLE_NEON_A64
@@ -281,6 +297,22 @@ typedef uint16x8_t v128u16;
 typedef int16x8_t v128s16;
 typedef uint32x4_t v128u32;
 typedef int32x4_t v128s32;
+typedef float32x4_t v128f32;
+
+#define AVAILABLE_TYPE_v128u8
+#define AVAILABLE_TYPE_v128s8
+#define AVAILABLE_TYPE_v128u16
+#define AVAILABLE_TYPE_v128s16
+#define AVAILABLE_TYPE_v128u32
+#define AVAILABLE_TYPE_v128s32
+#define AVAILABLE_TYPE_v128f32
+#endif
+
+#ifdef ENABLE_SSE
+#include <immintrin.h>
+#include <xmmintrin.h>
+typedef __m128 v128f32;
+#define AVAILABLE_TYPE_v128f32
 #endif
 
 #ifdef ENABLE_SSE2
@@ -291,17 +323,36 @@ typedef __m128i v128u16;
 typedef __m128i v128s16;
 typedef __m128i v128u32;
 typedef __m128i v128s32;
+
+#define AVAILABLE_TYPE_v128u8
+#define AVAILABLE_TYPE_v128s8
+#define AVAILABLE_TYPE_v128u16
+#define AVAILABLE_TYPE_v128s16
+#define AVAILABLE_TYPE_v128u32
+#define AVAILABLE_TYPE_v128s32
 #endif
 
-#if defined(ENABLE_AVX) || defined(ENABLE_AVX512_0)
+#if defined(ENABLE_AVX) || defined(ENABLE_AVX2) || defined(ENABLE_AVX512_0)
 
 #include <immintrin.h>
+typedef __m256  v256f32;
+#define AVAILABLE_TYPE_v256f32
+
+#if defined(ENABLE_AVX2) || defined(ENABLE_AVX512_0)
 typedef __m256i v256u8;
 typedef __m256i v256s8;
 typedef __m256i v256u16;
 typedef __m256i v256s16;
 typedef __m256i v256u32;
 typedef __m256i v256s32;
+
+#define AVAILABLE_TYPE_v256u8
+#define AVAILABLE_TYPE_v256s8
+#define AVAILABLE_TYPE_v256u16
+#define AVAILABLE_TYPE_v256s16
+#define AVAILABLE_TYPE_v256u32
+#define AVAILABLE_TYPE_v256s32
+#endif // defined(ENABLE_AVX2) || defined(ENABLE_AVX512_0)
 
 #if defined(ENABLE_AVX512_0)
 typedef __m512i v512u8;
@@ -310,9 +361,18 @@ typedef __m512i v512u16;
 typedef __m512i v512s16;
 typedef __m512i v512u32;
 typedef __m512i v512s32;
-#endif
+typedef __m512  v512f32;
 
-#endif // defined(ENABLE_AVX) || defined(ENABLE_AVX512_0)
+#define AVAILABLE_TYPE_v512u8
+#define AVAILABLE_TYPE_v512s8
+#define AVAILABLE_TYPE_v512u16
+#define AVAILABLE_TYPE_v512s16
+#define AVAILABLE_TYPE_v512u32
+#define AVAILABLE_TYPE_v512s32
+#define AVAILABLE_TYPE_v512f32
+#endif // defined(ENABLE_AVX512_0)
+
+#endif // defined(ENABLE_AVX) || defined(ENABLE_AVX2) || defined(ENABLE_AVX512_0)
 
 /*---------- GPU3D fixed-points types -----------*/
 
@@ -342,6 +402,209 @@ typedef s16 v10;
 #define v10toint(n)          ((n) >> 9)
 #define floattov10(n)        ((v10)((n) * (1 << 9)))
 #define v10tofloat(n)        (((float)(n)) / (float)(1<<9))
+
+union Vector2s16
+{
+	s16 vec[2];
+	s16 coord[2];
+	struct { s16 s, t; };
+	struct { s16 u, v; };
+	struct { s16 x, y; };
+	
+	u32 value;
+};
+typedef union Vector2s16 Vector2s16;
+
+union Vector3s16
+{
+	s16 vec[3];
+	s16 coord[3];
+	struct { s16 x, y, z; };
+};
+typedef union Vector3s16 Vector3s16;
+
+union Vector4s16
+{
+	s16 vec[4];
+	s16 coord[4];
+	struct { s16 x, y, z, w; };
+	
+	struct
+	{
+		Vector3s16 vec3;
+		s16 :16;
+	};
+	
+	u64 value;
+};
+typedef union Vector4s16 Vector4s16;
+
+union Vector2s32
+{
+	s32 vec[2];
+	s32 coord[2];
+	struct { s32 s, t; };
+	struct { s32 u, v; };
+	struct { s32 x, y; };
+	
+	u64 value;
+};
+typedef union Vector2s32 Vector2s32;
+
+union Vector3s32
+{
+	s32 vec[3];
+	s32 coord[3];
+	struct { s32 x, y, z; };
+};
+typedef union Vector3s32 Vector3s32;
+
+union Vector4s32
+{
+	s32 vec[4];
+	s32 coord[4];
+	struct { s32 x, y, z, w; };
+	
+	struct
+	{
+		Vector3s32 vec3;
+		s32 :32;
+	};
+};
+typedef union Vector4s32 Vector4s32;
+
+union Vector2s64
+{
+	s64 vec[2];
+	s64 coord[2];
+	struct { s64 s, t; };
+	struct { s64 u, v; };
+	struct { s64 x, y; };
+};
+typedef union Vector2s64 Vector2s64;
+
+union Vector3s64
+{
+	s64 vec[3];
+	s64 coord[3];
+	struct { s64 x, y, z; };
+};
+typedef union Vector3s64 Vector3s64;
+
+union Vector4s64
+{
+	s64 vec[4];
+	s64 coord[4];
+	struct { s64 x, y, z, w; };
+	
+	struct
+	{
+		Vector3s64 vec3;
+		s64 :64;
+	};
+};
+typedef union Vector4s64 Vector4s64;
+
+union Vector2f32
+{
+	float vec[2];
+	float coord[2];
+	struct { float s, t; };
+	struct { float u, v; };
+	struct { float x, y; };
+};
+typedef union Vector2f32 Vector2f32;
+
+union Vector3f32
+{
+	float vec[3];
+	float coord[3];
+	struct { float x, y, z; };
+};
+typedef union Vector3f32 Vector3f32;
+
+union Vector4f32
+{
+	float vec[4];
+	float coord[4];
+	struct { float x, y, z, w; };
+	
+	struct
+	{
+		Vector3f32 vec3;
+		float ignore;
+	};
+};
+typedef union Vector4f32 Vector4f32;
+
+union Color4u8
+{
+	u8 component[4];
+	struct { u8 r, g, b, a; };
+	
+	u32 value;
+};
+typedef union Color4u8 Color4u8;
+
+union Color3s32
+{
+	s32 component[3];
+	struct { s32 r, g, b; };
+};
+typedef union Color3s32 Color3s32;
+
+union Color4s32
+{
+	s32 component[4];
+	struct { s32 r, g, b, a; };
+	
+	struct
+	{
+		Color3s32 color3;
+		s32 alpha;
+	};
+};
+typedef union Color4s32 Color4s32;
+
+union Color3s64
+{
+	s64 component[3];
+	struct { s64 r, g, b; };
+};
+typedef union Color3s64 Color3s64;
+
+union Color4s64
+{
+	s64 component[4];
+	struct { s64 r, g, b, a; };
+	
+	struct
+	{
+		Color3s64 color3;
+		s64 alpha;
+	};
+};
+typedef union Color4s64 Color4s64;
+
+union Color3f32
+{
+	float component[3];
+	struct { float r, g, b; };
+};
+typedef union Color3f32 Color3f32;
+
+union Color4f32
+{
+	float component[4];
+	struct { float r, g, b, a; };
+	
+	struct
+	{
+		Color3f32 color3;
+		float alpha;
+	};
+};
+typedef union Color4f32 Color4f32;
 
 /*----------------------*/
 
@@ -458,22 +721,23 @@ enum BESwapFlags
 	BESwapSrcDst  = 0x03  // An alternate name for "BESwapInOut"
 };
 
-/* little endian (ds' endianess) to local endianess convert macros */
-#ifdef MSB_FIRST	/* local arch is big endian */
-# define LE_TO_LOCAL_16(x) ((((x)&0xff)<<8)|(((x)>>8)&0xff))
-# define LE_TO_LOCAL_32(x) ((((x)&0xff)<<24)|(((x)&0xff00)<<8)|(((x)>>8)&0xff00)|(((x)>>24)&0xff))
-# define LE_TO_LOCAL_64(x) ((((x)&0xff)<<56)|(((x)&0xff00)<<40)|(((x)&0xff0000)<<24)|(((x)&0xff000000)<<8)|(((x)>>8)&0xff000000)|(((x)>>24)&0xff0000)|(((x)>>40)&0xff00)|(((x)>>56)&0xff))
-# define LOCAL_TO_LE_16(x) ((((x)&0xff)<<8)|(((x)>>8)&0xff))
-# define LOCAL_TO_LE_32(x) ((((x)&0xff)<<24)|(((x)&0xff00)<<8)|(((x)>>8)&0xff00)|(((x)>>24)&0xff))
-# define LOCAL_TO_LE_64(x) ((((x)&0xff)<<56)|(((x)&0xff00)<<40)|(((x)&0xff0000)<<24)|(((x)&0xff000000)<<8)|(((x)>>8)&0xff000000)|(((x)>>24)&0xff0000)|(((x)>>40)&0xff00)|(((x)>>56)&0xff))
-#else		/* local arch is little endian */
-# define LE_TO_LOCAL_16(x) (x)
-# define LE_TO_LOCAL_32(x) (x)
-# define LE_TO_LOCAL_64(x) (x)
-# define LOCAL_TO_LE_16(x) (x)
-# define LOCAL_TO_LE_32(x) (x)
-# define LOCAL_TO_LE_64(x) (x)
+// little endian (ds' endianess) to local endianess convert macros
+#ifdef MSB_FIRST // local arch is big endian
+	#define LE_TO_LOCAL_16(x) ((((x)&0xff)<<8)|(((x)>>8)&0xff))
+	#define LE_TO_LOCAL_32(x) ((((x)&0xff)<<24)|(((x)&0xff00)<<8)|(((x)>>8)&0xff00)|(((x)>>24)&0xff))
+	#define LE_TO_LOCAL_64(x) ((((x)&0xff)<<56)|(((x)&0xff00)<<40)|(((x)&0xff0000)<<24)|(((x)&0xff000000)<<8)|(((x)>>8)&0xff000000)|(((x)>>24)&0xff0000)|(((x)>>40)&0xff00)|(((x)>>56)&0xff))
+	#define LE_TO_LOCAL_WORDS_32(x) (((x)<<16)|((x)>>16))
+#else // local arch is little endian
+	#define LE_TO_LOCAL_16(x) (x)
+	#define LE_TO_LOCAL_32(x) (x)
+	#define LE_TO_LOCAL_64(x) (x)
+	#define LE_TO_LOCAL_WORDS_32(x) (x)
 #endif
+
+#define LOCAL_TO_LE_16(x) LE_TO_LOCAL_16(x)
+#define LOCAL_TO_LE_32(x) LE_TO_LOCAL_32(x)
+#define LOCAL_TO_LE_64(x) LE_TO_LOCAL_64(x)
+#define LOCAL_WORDS_TO_LE_32(x) LE_TO_LOCAL_WORDS_32(x)
 
 // kilobytes and megabytes macro
 #define MB(x) ((x)*1024*1024)

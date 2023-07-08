@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2006-2007 shash
-	Copyright (C) 2008-2022 DeSmuME team
+	Copyright (C) 2008-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ Render3D::Render3D()
 	_framebufferHeight = GPU_FRAMEBUFFER_NATIVE_HEIGHT;
 	_framebufferPixCount = _framebufferWidth * _framebufferHeight;
 	_framebufferSIMDPixCount = 0;
-	_framebufferColorSizeBytes = _framebufferWidth * _framebufferHeight * sizeof(FragmentColor);
+	_framebufferColorSizeBytes = _framebufferWidth * _framebufferHeight * sizeof(Color4u8);
 	_framebufferColor = NULL;
 	
 	_internalRenderingFormat = NDSColorFormat_BGR666_Rev;
@@ -240,14 +240,19 @@ Render3D::Render3D()
 	_textureDeposterizeSrcSurface.Height = _textureDeposterizeDstSurface.Height = 1;
 	_textureDeposterizeSrcSurface.Pitch = _textureDeposterizeDstSurface.Pitch = 1;
 	
-	for (size_t i = 0; i < POLYLIST_SIZE; i++)
+	for (size_t i = 0; i < CLIPPED_POLYLIST_SIZE; i++)
 	{
 		_textureList[i] = NULL;
 	}
 	
-	memset(this->clearImageColor16Buffer, 0, sizeof(this->clearImageColor16Buffer));
-	memset(this->clearImageDepthBuffer, 0, sizeof(this->clearImageDepthBuffer));
-	memset(this->clearImageFogBuffer, 0, sizeof(this->clearImageFogBuffer));
+	_clippedPolyCount = 0;
+	_clippedPolyOpaqueCount = 0;
+	_clippedPolyList = NULL;
+	_rawPolyList = NULL;
+	
+	memset(clearImageColor16Buffer, 0, sizeof(clearImageColor16Buffer));
+	memset(clearImageDepthBuffer, 0, sizeof(clearImageDepthBuffer));
+	memset(clearImageFogBuffer, 0, sizeof(clearImageFogBuffer));
 	
 	Reset();
 }
@@ -277,7 +282,7 @@ std::string Render3D::GetName()
 	return this->_deviceInfo.renderName;
 }
 
-FragmentColor* Render3D::GetFramebuffer()
+Color4u8* Render3D::GetFramebuffer()
 {
 	return this->_framebufferColor;
 }
@@ -307,7 +312,7 @@ Render3DError Render3D::SetFramebufferSize(size_t w, size_t h)
 	this->_framebufferWidth = w;
 	this->_framebufferHeight = h;
 	this->_framebufferPixCount = w * h;
-	this->_framebufferColorSizeBytes = w * h * sizeof(FragmentColor);
+	this->_framebufferColorSizeBytes = w * h * sizeof(Color4u8);
 	this->_framebufferColor = GPU->GetEngineMain()->Get3DFramebufferMain(); // Just use the buffer that is already present on the main GPU engine
 	
 	return RENDER3DERROR_NOERR;
@@ -410,14 +415,19 @@ size_t Render3D::GetClippedPolyCount() const
 	return this->_clippedPolyCount;
 }
 
+const POLY* Render3D::GetRawPolyList() const
+{
+	return this->_rawPolyList;
+}
+
 Render3DError Render3D::ApplyRenderingSettings(const GFX3D_State &renderState)
 {
-	this->_enableEdgeMark = (CommonSettings.GFX3D_EdgeMark) ? renderState.enableEdgeMarking : false;
-	this->_enableFog = (CommonSettings.GFX3D_Fog) ? renderState.enableFog : false;
+	this->_enableEdgeMark = (CommonSettings.GFX3D_EdgeMark) ? (renderState.DISP3DCNT.EnableEdgeMarking != 0) : false;
+	this->_enableFog = (CommonSettings.GFX3D_Fog) ? (renderState.DISP3DCNT.EnableFog != 0) : false;
 	this->_enableTextureSmoothing = CommonSettings.GFX3D_Renderer_TextureSmoothing;
 	
 	this->_prevEnableTextureSampling = this->_enableTextureSampling;
-	this->_enableTextureSampling = (CommonSettings.GFX3D_Texture) ? renderState.enableTexturing : false;
+	this->_enableTextureSampling = (CommonSettings.GFX3D_Texture) ? (renderState.DISP3DCNT.EnableTexMapping != 0) : false;
 	
 	this->_prevEnableTextureDeposterize = this->_enableTextureDeposterize;
 	this->_enableTextureDeposterize = CommonSettings.GFX3D_Renderer_TextureDeposterize;
@@ -436,7 +446,7 @@ Render3DError Render3D::ApplyRenderingSettings(const GFX3D_State &renderState)
 	return RENDER3DERROR_NOERR;
 }
 
-Render3DError Render3D::BeginRender(const GFX3D &engine)
+Render3DError Render3D::BeginRender(const GFX3D_State &renderState, const GFX3D_GeometryList &renderGList)
 {
 	return RENDER3DERROR_NOERR;
 }
@@ -456,7 +466,7 @@ Render3DError Render3D::EndRender()
 	return RENDER3DERROR_NOERR;
 }
 
-Render3DError Render3D::FlushFramebuffer(const FragmentColor *__restrict srcFramebuffer, FragmentColor *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16)
+Render3DError Render3D::FlushFramebuffer(const Color4u8 *__restrict srcFramebuffer, Color4u8 *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16)
 {
 	if ( (dstFramebufferMain == NULL) && (dstFramebuffer16 == NULL) )
 	{
@@ -476,7 +486,7 @@ Render3DError Render3D::FlushFramebuffer(const FragmentColor *__restrict srcFram
 		else if ( ((this->_internalRenderingFormat == NDSColorFormat_BGR666_Rev) && (this->_outputFormat == NDSColorFormat_BGR666_Rev)) ||
 		          ((this->_internalRenderingFormat == NDSColorFormat_BGR888_Rev) && (this->_outputFormat == NDSColorFormat_BGR888_Rev)) )
 		{
-			memcpy(dstFramebufferMain, srcFramebuffer, this->_framebufferPixCount * sizeof(FragmentColor));
+			memcpy(dstFramebufferMain, srcFramebuffer, this->_framebufferPixCount * sizeof(Color4u8));
 		}
 		
 		this->_renderNeedsFlushMain = false;
@@ -579,15 +589,14 @@ Render3DError Render3D::ClearFramebuffer(const GFX3D_State &renderState)
 {
 	Render3DError error = RENDER3DERROR_NOERR;
 	
-	if (renderState.enableClearImage)
+	if (renderState.DISP3DCNT.RearPlaneMode)
 	{
 		//the lion, the witch, and the wardrobe (thats book 1, suck it you new-school numberers)
 		//uses the scroll registers in the main game engine
 		const u16 *__restrict clearColorBuffer = (u16 *__restrict)MMU.texInfo.textureSlotAddr[2];
 		const u16 *__restrict clearDepthBuffer = (u16 *__restrict)MMU.texInfo.textureSlotAddr[3];
-		const u16 scrollBits = T1ReadWord(MMU.ARM9_REG, 0x356); //CLRIMAGE_OFFSET
-		const u8 xScroll = scrollBits & 0xFF;
-		const u8 yScroll = (scrollBits >> 8) & 0xFF;
+		const u8 xScroll = renderState.clearImageOffset.XOffset;
+		const u8 yScroll = renderState.clearImageOffset.YOffset;
 		
 		if (xScroll == 0 && yScroll == 0)
 		{
@@ -639,7 +648,7 @@ Render3DError Render3D::ClearUsingImage(const u16 *__restrict colorBuffer, const
 	return RENDER3DERROR_NOERR;
 }
 
-Render3DError Render3D::ClearUsingValues(const FragmentColor &clearColor6665, const FragmentAttributes &clearAttributes)
+Render3DError Render3D::ClearUsingValues(const Color4u8 &clearColor6665, const FragmentAttributes &clearAttributes)
 {
 	return RENDER3DERROR_NOERR;
 }
@@ -649,7 +658,7 @@ Render3DError Render3D::SetupTexture(const POLY &thePoly, size_t polyRenderIndex
 	return RENDER3DERROR_NOERR;
 }
 
-Render3DError Render3D::SetupViewport(const u32 viewportValue)
+Render3DError Render3D::SetupViewport(const GFX3D_Viewport viewport)
 {
 	return RENDER3DERROR_NOERR;
 }
@@ -661,7 +670,7 @@ Render3DError Render3D::Reset()
 		memset(this->_framebufferColor, 0, this->_framebufferColorSizeBytes);
 	}
 	
-	this->_clearColor6665.color = 0;
+	this->_clearColor6665.value = 0;
 	memset(&this->_clearAttributes, 0, sizeof(FragmentAttributes));
 	
 	this->_renderNeedsFinish = false;
@@ -688,33 +697,32 @@ Render3DError Render3D::RenderPowerOff()
 	return RENDER3DERROR_NOERR;
 }
 
-Render3DError Render3D::Render(const GFX3D &engine)
+Render3DError Render3D::Render(const GFX3D_State &renderState, const GFX3D_GeometryList &renderGList)
 {
 	Render3DError error = RENDER3DERROR_NOERR;
 	this->_isPoweredOn = true;
 	
-	const u32 clearColorSwapped = LE_TO_LOCAL_32(engine.renderState.clearColor);
-	this->_clearColor6665.color = LE_TO_LOCAL_32( COLOR555TO6665(clearColorSwapped & 0x7FFF, (clearColorSwapped >> 16) & 0x1F) );
+	this->_clearColor6665.value = LE_TO_LOCAL_32( COLOR555TO6665(renderState.clearColor & 0x7FFF, (renderState.clearColor >> 16) & 0x1F) );
+	this->_clearAttributes.opaquePolyID = (renderState.clearColor >> 24) & 0x3F;
 	
-	this->_clearAttributes.opaquePolyID = (clearColorSwapped >> 24) & 0x3F;
 	//special value for uninitialized translucent polyid. without this, fires in spiderman2 dont display
 	//I am not sure whether it is right, though. previously this was cleared to 0, as a guess,
 	//but in spiderman2 some fires with polyid 0 try to render on top of the background
 	this->_clearAttributes.translucentPolyID = kUnsetTranslucentPolyID;
-	this->_clearAttributes.depth = engine.renderState.clearDepth;
+	this->_clearAttributes.depth = renderState.clearDepth;
 	this->_clearAttributes.stencil = 0;
 	this->_clearAttributes.isTranslucentPoly = 0;
 	this->_clearAttributes.polyFacing = PolyFacing_Unwritten;
-	this->_clearAttributes.isFogged = BIT15(clearColorSwapped);
+	this->_clearAttributes.isFogged = BIT15(renderState.clearColor);
 	
-	error = this->BeginRender(engine);
+	error = this->BeginRender(renderState, renderGList);
 	if (error != RENDER3DERROR_NOERR)
 	{
 		this->EndRender();
 		return error;
 	}
 	
-	error = this->ClearFramebuffer(engine.renderState);
+	error = this->ClearFramebuffer(renderState);
 	if (error != RENDER3DERROR_NOERR)
 	{
 		this->EndRender();

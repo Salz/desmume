@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2011 Roger Manuel
-	Copyright (C) 2012-2022 DeSmuME Team
+	Copyright (C) 2012-2023 DeSmuME Team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 #import "preferencesWindowDelegate.h"
 #import "EmuControllerDelegate.h"
+#import "cheatWindowDelegate.h"
 
 #import "cocoa_core.h"
 #import "cocoa_GPU.h"
@@ -179,7 +180,7 @@
 {
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->SetPixelScalerOGL(scalerID);
+	oglImage->SetPixelScalerOGL((int)scalerID);
 	oglImage->ProcessOGL();
 	CGLSetCurrentContext(prevContext);
 }
@@ -193,7 +194,7 @@
 {
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->SetOutputFilterOGL(outputFilterID);
+	oglImage->SetOutputFilterOGL((int)outputFilterID);
 	CGLSetCurrentContext(prevContext);
 }
 
@@ -235,7 +236,7 @@
 	// Send the NSImage to OpenGL.
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->LoadFrameOGL(bitmapData, 0, 0, previewWidth, previewHeight);
+	oglImage->LoadFrameOGL(bitmapData, 0, 0, (GLsizei)previewWidth, (GLsizei)previewHeight);
 	oglImage->ProcessOGL();
 	CGLSetCurrentContext(prevContext);
 }
@@ -426,7 +427,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseRomForAutoloadDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseRomForAutoloadDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else
@@ -487,7 +488,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseAdvansceneDatabaseDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseAdvansceneDatabaseDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else
@@ -542,7 +543,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseCheatDatabaseDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseCheatDatabaseDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else
@@ -580,58 +581,11 @@
 	
 	const BOOL isRomLoaded = [(EmuControllerDelegate *)[emuController content] currentRom] != nil;
 	NSMutableDictionary *cheatWindowBindings = (NSMutableDictionary *)[cheatWindowController content];
-	CocoaDSCheatManager *cdsCheats = (CocoaDSCheatManager *)[cheatWindowBindings valueForKey:@"cheatList"];
+	CheatWindowDelegate *cheatWindowDelegate = (CheatWindowDelegate *)[cheatWindowBindings valueForKey:@"cheatWindowDelegateKey"];
 	
-	if (isRomLoaded == YES && cdsCheats != nil)
+	if ( (isRomLoaded == YES) && (cheatWindowDelegate != nil) )
 	{
-		NSInteger error = 0;
-		NSMutableArray *dbList = [cdsCheats cheatListFromDatabase:selectedFileURL errorCode:&error];
-		if (dbList != nil)
-		{
-			[cheatDatabaseController setContent:dbList];
-			
-			NSString *titleString = cdsCheats.dbTitle;
-			NSString *dateString = cdsCheats.dbDate;
-			
-			[cheatWindowBindings setValue:titleString forKey:@"cheatDBTitle"];
-			[cheatWindowBindings setValue:dateString forKey:@"cheatDBDate"];
-			[cheatWindowBindings setValue:[NSString stringWithFormat:@"%ld", (unsigned long)[dbList count]] forKey:@"cheatDBItemCount"];
-		}
-		else
-		{
-			// TODO: Display an error message here.
-			[cheatWindowBindings setValue:@"---" forKey:@"cheatDBItemCount"];
-			
-			switch (error)
-			{
-				case CHEATEXPORT_ERROR_FILE_NOT_FOUND:
-					NSLog(@"R4 Cheat Database read failed! Could not load the database file!");
-					[cheatWindowBindings setValue:@"Database not loaded." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"CANNOT LOAD FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_WRONG_FILE_FORMAT:
-					NSLog(@"R4 Cheat Database read failed! Wrong file format!");
-					[cheatWindowBindings setValue:@"Database load error." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"FAILED TO LOAD FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_SERIAL_NOT_FOUND:
-					NSLog(@"R4 Cheat Database read failed! Could not find the serial number for this game in the database!");
-					[cheatWindowBindings setValue:@"ROM not found in database." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"ROM not found." forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_EXPORT_FAILED:
-					NSLog(@"R4 Cheat Database read failed! Could not read the database file!");
-					[cheatWindowBindings setValue:@"Database read error." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"CANNOT READ FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				default:
-					break;
-			}
-		}
+		[cheatWindowDelegate databaseLoadFromFile:selectedFileURL];
 	}
 }
 
@@ -754,7 +708,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseArm9BiosImageDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseArm9BiosImageDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else
@@ -786,7 +740,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseArm7BiosImageDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseArm7BiosImageDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else
@@ -818,7 +772,7 @@
 		[panel setAllowedFileTypes:fileTypes];
 		[panel beginSheetModalForWindow:window
 					  completionHandler:^(NSInteger result) {
-						  [self chooseFirmwareImageDidEnd:panel returnCode:result contextInfo:nil];
+						  [self chooseFirmwareImageDidEnd:panel returnCode:(int)result contextInfo:nil];
 					  } ];
 	}
 	else

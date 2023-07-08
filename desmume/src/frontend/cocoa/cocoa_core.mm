@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2011 Roger Manuel
-	Copyright (C) 2011-2022 DeSmuME team
+	Copyright (C) 2011-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #import "cocoa_input.h"
 #import "cocoa_firmware.h"
 #import "cocoa_GPU.h"
+#import "cocoa_cheat.h"
 #import "cocoa_globals.h"
 #import "cocoa_output.h"
 #import "cocoa_rom.h"
@@ -48,6 +49,7 @@ volatile bool execute = true;
 @synthesize cdsFirmware;
 @synthesize cdsController;
 @synthesize cdsGPU;
+@synthesize cdsCheatManager;
 @synthesize cdsOutputList;
 
 @dynamic masterExecute;
@@ -122,6 +124,7 @@ volatile bool execute = true;
 	cdsFirmware = nil;
 	cdsController = [[CocoaDSController alloc] init];
 	cdsGPU = [[CocoaDSGPU alloc] init];
+	cdsCheatManager = [[CocoaDSCheatManager alloc] init];
 	cdsOutputList = [[NSMutableArray alloc] initWithCapacity:32];
 	
 	ClientInputHandler *inputHandler = [cdsController inputHandler];
@@ -164,10 +167,11 @@ volatile bool execute = true;
 	pthread_attr_destroy(&threadAttr);
 	
 	[cdsGPU setOutputList:cdsOutputList rwlock:&threadParam.rwlockOutputList];
+	[cdsCheatManager setRwlockCoreExecute:&threadParam.rwlockCoreExecute];
 	
 	macOS_driver *newDriver = new macOS_driver;
 	newDriver->SetCoreThreadMutexLock(&threadParam.mutexThreadExecute);
-	newDriver->SetCoreExecuteRWLock(self.rwlockCoreExecute);
+	newDriver->SetCoreExecuteRWLock(&threadParam.rwlockCoreExecute);
 	newDriver->SetExecutionControl(execControl);
 	driver = newDriver;
 	
@@ -603,7 +607,7 @@ volatile bool execute = true;
 	execControl->SetExecutionBehavior((ExecutionBehavior)coreState);
 	pthread_rwlock_rdlock(&threadParam.rwlockOutputList);
 	
-	char frameStatusCStr[128] = {0};
+	char frameStatusCStr[64] = {0};
 	
 	switch ((ExecutionBehavior)coreState)
 	{
@@ -614,7 +618,7 @@ volatile bool execute = true;
 				[cdsOutput setIdle:YES];
 			}
 			
-			sprintf(frameStatusCStr, "%llu", (unsigned long long)[self frameNumber]);
+			snprintf(frameStatusCStr, sizeof(frameStatusCStr), "%llu", (unsigned long long)[self frameNumber]);
 			
 			[_fpsTimer invalidate];
 			_fpsTimer = nil;
@@ -628,7 +632,7 @@ volatile bool execute = true;
 				[cdsOutput setIdle:NO];
 			}
 			
-			sprintf(frameStatusCStr, "%llu", (unsigned long long)[self frameNumber]);
+			snprintf(frameStatusCStr, sizeof(frameStatusCStr), "%llu", (unsigned long long)[self frameNumber]);
 			
 			[_fpsTimer invalidate];
 			_fpsTimer = nil;
@@ -642,7 +646,7 @@ volatile bool execute = true;
 				[cdsOutput setIdle:NO];
 			}
 			
-			sprintf(frameStatusCStr, "%s", "Executing...");
+			snprintf(frameStatusCStr, sizeof(frameStatusCStr), "%s", "Executing...");
 
 			if (_fpsTimer == nil)
 			{
@@ -668,7 +672,7 @@ volatile bool execute = true;
 				}
 			}
 			
-			sprintf(frameStatusCStr, "Jumping to frame %llu.", (unsigned long long)execControl->GetFrameJumpTarget());
+			snprintf(frameStatusCStr, sizeof(frameStatusCStr), "Jumping to frame %llu.", (unsigned long long)execControl->GetFrameJumpTarget());
 			
 			[_fpsTimer invalidate];
 			_fpsTimer = nil;
@@ -1148,6 +1152,7 @@ static void* RunCoreThread(void *arg)
 	CoreThreadParam *param = (CoreThreadParam *)arg;
 	CocoaDSCore *cdsCore = (CocoaDSCore *)param->cdsCore;
 	CocoaDSGPU *cdsGPU = [cdsCore cdsGPU];
+	ClientCheatManager *cheatManager = [[cdsCore cdsCheatManager] internalManager];
 	ClientExecutionControl *execControl = [cdsCore execControl];
 	ClientInputHandler *inputHandler = execControl->GetClientInputHandler();
 	NSMutableArray *cdsOutputList = [cdsCore cdsOutputList];
@@ -1228,6 +1233,7 @@ static void* RunCoreThread(void *arg)
 		
 		// Execute the frame and increment the frame counter.
 		pthread_rwlock_wrlock(&param->rwlockCoreExecute);
+		cheatManager->ApplyToMaster();
 		NDS_exec<false>();
 		SPU_Emulate_user();
 		execControl->FetchOutputPostNDSExec();

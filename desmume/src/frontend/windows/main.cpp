@@ -357,7 +357,7 @@ Lock::~Lock() { LeaveCriticalSection(m_cs); }
 
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 
-char SavName[MAX_PATH] = {0};
+wchar_t SavName[MAX_PATH] = {0};
 char ImportSavName[MAX_PATH] = {0};
 char szClassName[ ] = "DeSmuME";
 int romnum = 0;
@@ -2443,56 +2443,7 @@ int _main()
 
 	video.setfilter(GetPrivateProfileInt("Video", "Filter", video.NONE, IniName));
 	FilterUpdate(MainWindow->getHWnd(),false);
-	
-	// Generate the unique MAC address.
-	{
-		// Get the host's IP4 address.
-		char hostname[256];
-		if (gethostname(hostname, 256) != 0)
-			strncpy(hostname, "127.0.0.1", 256);
 		
-		hostent *he = gethostbyname(hostname);
-		u32 ipaddr;
-		if (he == NULL || he->h_addr_list[0] == NULL)
-			ipaddr = 0x0100007F; // 127.0.0.1
-		else
-			ipaddr = *(u32 *)he->h_addr_list[0];
-		
-		u32 hash = (u32)GetCurrentProcessId();
-		
-		while ((hash & 0xFF000000) == 0)
-		{
-			hash <<= 1;
-		}
-		
-		hash >>= 1;
-		hash += ipaddr >> 8;
-		hash &= 0x00FFFFFF;
-		
-		CommonSettings.fwConfig.MACAddress[0] = 0x00;
-		CommonSettings.fwConfig.MACAddress[1] = 0x09;
-		CommonSettings.fwConfig.MACAddress[2] = 0xBF;
-		CommonSettings.fwConfig.MACAddress[3] = hash >> 16;
-		CommonSettings.fwConfig.MACAddress[4] = (hash >> 8) & 0xFF;
-		CommonSettings.fwConfig.MACAddress[5] = hash & 0xFF;
-
-		//UPDATE 2021 - as of commit e27cc87bdf4c59983e872c0c03d79717e77a6400 desmume began randomizing the mac address.
-		//the FirmwareMACMode was removed and we incorporated an assumption that the mac address would be randomized...
-		//... unless the user specified it otherwise (which would be applied later) .. I think?
-		//a search of internet lore from around that time reveals most users expect desmume to have a stable mac address (FirmwareMACMode_Automatic)
-		//This is the DEFINED BEHAVIOR for desmume.
-		//Until FirmwareMACMode is re-added, we MUST have a standard/automatic/stable mac address.
-		//BEWARE: the way it was formerly implemented is NONSENSE: the wifi module would read that setting and then CHANGE it in the firmware.
-		//WHAT??? The aforementioned commit had the right idea to move this responsibility to the firmware, but we can't have the stable mac address going bye-bye.
-		//So: here's the standard stable mac address
-		CommonSettings.fwConfig.MACAddress[0] = 0x00;
-		CommonSettings.fwConfig.MACAddress[1] = 0x09;
-		CommonSettings.fwConfig.MACAddress[2] = 0xBF;
-		CommonSettings.fwConfig.MACAddress[3] = 0x12;
-		CommonSettings.fwConfig.MACAddress[4] = 0x34;
-		CommonSettings.fwConfig.MACAddress[5] = 0x56;
-	}
-	
 	// Read the firmware settings from the init file
 	CommonSettings.fwConfig.favoriteColor = GetPrivateProfileInt("Firmware","favColor", 10, IniName);
 	CommonSettings.fwConfig.birthdayMonth = GetPrivateProfileInt("Firmware","bMonth", 7, IniName);
@@ -2523,6 +2474,9 @@ int _main()
 		for ( char_index = 0; char_index < CommonSettings.fwConfig.messageLength; char_index++) {
 			CommonSettings.fwConfig.message[char_index] = temp_str[char_index];
 		}
+
+		GetPrivateProfileString("Firmware", "macAddress", defaultMacAddressStr, temp_str, 13, IniName);
+		NDS_SetFirmwareMACAddressFromStr(CommonSettings.fwConfig, temp_str);
 	}
 
 	if (cmdline.nds_file != "")
@@ -2983,7 +2937,7 @@ void AviRecordTo()
 
 		dir = Path::GetFileDirectoryPath(outFilename);
 		path.setpath(path.AVI_FILES, dir);
-		WritePrivateProfileString(SECTION, AVIKEY, dir.c_str(), IniName);
+		WritePrivateProfileStringW(LSECTION, AVIKEY, mbstowcs(dir).c_str(), IniNameW);
 	}
 
 	NDS_UnPause();
@@ -3109,7 +3063,7 @@ void WavRecordTo(int wavmode)
 
 		dir = Path::GetFileDirectoryPath(outFilename);
 		path.setpath(path.AVI_FILES, dir);
-		WritePrivateProfileString(SECTION, AVIKEY, dir.c_str(), IniName);
+		WritePrivateProfileStringW(LSECTION, AVIKEY, mbstowcs(dir).c_str(), IniNameW);
 	}
 
 	NDS_UnPause();
@@ -3238,7 +3192,7 @@ LRESULT OpenFile()
 		{
 			std::string dir = Path::GetFileDirectoryPath(wcstombs(filename));
 			path.setpath(path.ROMS, dir);
-			WritePrivateProfileString(SECTION, ROMKEY, dir.c_str(), IniName);
+			WritePrivateProfileStringW(LSECTION, ROMKEY, mbstowcs(dir).c_str(), IniNameW);
 		}
 	}
 
@@ -4804,60 +4758,60 @@ DOKEYDOWN:
 
 		case IDM_STATE_LOAD:
 			{
-				OPENFILENAME ofn;
+				OPENFILENAMEW ofn;
 				NDS_Pause();
 				ZeroMemory(&ofn, sizeof(ofn));
 				ofn.lStructSize = sizeof(ofn);
 				ofn.hwndOwner = hwnd;
-				ofn.lpstrFilter = "DeSmuME Savestate (*.dst or *.ds#)\0*.dst;*.ds0*;*.ds1*;*.ds2*;*.ds3*;*.ds4*;*.ds5*;*.ds6*;*.ds7*;*.ds8*;*.ds9*;*.ds-*\0DeSmuME Savestate (*.dst only)\0*.dst\0All files (*.*)\0*.*\0\0";
+				ofn.lpstrFilter = L"DeSmuME Savestate (*.dst or *.ds#)\0*.dst;*.ds0*;*.ds1*;*.ds2*;*.ds3*;*.ds4*;*.ds5*;*.ds6*;*.ds7*;*.ds8*;*.ds9*;*.ds-*\0DeSmuME Savestate (*.dst only)\0*.dst\0All files (*.*)\0*.*\0\0";
 				ofn.nFilterIndex = 1;
 				ofn.lpstrFile =  SavName;
 				ofn.nMaxFile = MAX_PATH;
-				ofn.lpstrDefExt = "dst";
+				ofn.lpstrDefExt = L"dst";
 				ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST;
-				std::string dir = path.getpath(path.STATES);
+				std::wstring dir = mbstowcs(path.getpath(path.STATES));
 				ofn.lpstrInitialDir = dir.c_str();
 
-				if(!GetOpenFileName(&ofn))
+				if(!GetOpenFileNameW(&ofn))
 				{
 					NDS_UnPause();
 					return 0;
 				}
 
-				dir = Path::GetFileDirectoryPath(SavName);
-				path.setpath(path.STATES, dir);
-				WritePrivateProfileString(SECTION, STATEKEY, dir.c_str(), IniName);
+				std::string utf8dir = Path::GetFileDirectoryPath(wcstombs(SavName));
+				path.setpath(path.STATES, utf8dir);
+				WritePrivateProfileStringW(LSECTION, STATEKEY, mbstowcs(utf8dir).c_str(), IniNameW);
 
-				savestate_load(SavName);
+				savestate_load(wcstombs(SavName).c_str());
 				UpdateToolWindows();
 				NDS_UnPause();
 			}
 			return 0;
 		case IDM_STATE_SAVE:
 			{
-				OPENFILENAME ofn;
+				OPENFILENAMEW ofn;
 				bool unpause = NDS_Pause();
 				ZeroMemory(&ofn, sizeof(ofn));
 				ofn.lStructSize = sizeof(ofn);
 				ofn.hwndOwner = hwnd;
-				ofn.lpstrFilter = "DeSmuME Savestate (*.dst or *.ds#)\0*.dst;*.ds0*;*.ds1*;*.ds2*;*.ds3*;*.ds4*;*.ds5*;*.ds6*;*.ds7*;*.ds8*;*.ds9*;*.ds-*\0DeSmuME Savestate (*.dst only)\0*.dst\0All files (*.*)\0*.*\0\0";
+				ofn.lpstrFilter = L"DeSmuME Savestate (*.dst or *.ds#)\0*.dst;*.ds0*;*.ds1*;*.ds2*;*.ds3*;*.ds4*;*.ds5*;*.ds6*;*.ds7*;*.ds8*;*.ds9*;*.ds-*\0DeSmuME Savestate (*.dst only)\0*.dst\0All files (*.*)\0*.*\0\0";
 				ofn.nFilterIndex = 1;
 				ofn.lpstrFile =  SavName;
 				ofn.nMaxFile = MAX_PATH;
-				ofn.lpstrDefExt = "dst";
+				ofn.lpstrDefExt = L"dst";
 				ofn.Flags = OFN_NOREADONLYRETURN | OFN_PATHMUSTEXIST;
-				std::string dir = path.getpath(path.STATES);
+				std::wstring dir = mbstowcs(path.getpath(path.STATES));
 				ofn.lpstrInitialDir = dir.c_str();
 
-				if(GetSaveFileName(&ofn))
+				if(GetSaveFileNameW(&ofn))
 				{
-					savestate_save(SavName);
+					savestate_save(wcstombs(SavName).c_str());
 					LoadSaveStateInfo();
 				}
 
-				dir = Path::GetFileDirectoryPath(SavName);
-				path.setpath(path.STATES, dir);
-				WritePrivateProfileString(SECTION, STATEKEY, dir.c_str(), IniName);
+				std::string utf8dir = Path::GetFileDirectoryPath(wcstombs(SavName));
+				path.setpath(path.STATES, utf8dir);
+				WritePrivateProfileStringW(LSECTION, STATEKEY, mbstowcs(utf8dir).c_str(), IniNameW);
 
 				if(unpause) NDS_UnPause();
 				return 0;
@@ -6220,7 +6174,7 @@ LRESULT CALLBACK EmulationSettingsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, L
 					{
 						std::string dir = Path::GetFileDirectoryPath(fileName);
 						path.setpath(path.FIRMWARE, dir);
-						WritePrivateProfileString(SECTION, FIRMWAREKEY, dir.c_str(), IniName);
+						WritePrivateProfileStringW(LSECTION, FIRMWAREKEY, mbstowcs(dir).c_str(), IniNameW);
 
 						HWND cur;
 
@@ -6340,7 +6294,7 @@ LRESULT CALLBACK MicrophoneSettingsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, 
 					{
 						std::string dir = Path::GetFileDirectoryPath(fileName);
 						path.setpath(path.SOUNDS, dir);
-						WritePrivateProfileString(SECTION, SOUNDKEY, dir.c_str(), IniName);
+						WritePrivateProfileStringW(LSECTION, SOUNDKEY, mbstowcs(dir).c_str(), IniNameW);
 
 						HWND cur;
 
