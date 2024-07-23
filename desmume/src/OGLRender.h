@@ -134,6 +134,7 @@ EXTERNOGLEXT(PFNGLACTIVETEXTUREPROC, glActiveTexture) // Core in v1.3
 
 // Blending
 #if !defined(GLX_H)
+EXTERNOGLEXT(PFNGLBLENDCOLORPROC, glBlendColor) // Core in v1.2
 EXTERNOGLEXT(PFNGLBLENDEQUATIONPROC, glBlendEquation) // Core in v1.2
 #endif
 EXTERNOGLEXT(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) // Core in v1.4
@@ -332,7 +333,7 @@ EXTERNOGLEXT(PFNGLDELETERENDERBUFFERSEXTPROC, glDeleteRenderbuffersEXT)
 	typedef GLclampf GLclampd;
 	#define glClearDepth(depth) glClearDepthf(depth)
 	#define glDrawBuffer(x) glDrawBuffers(1, ((GLenum[]){x}))
-
+	
 	// 1D textures may not exist for a particular OpenGL variant, so they will be promoted to
 	// 2D textures instead. Implementations need to modify their GLSL shaders accordingly to
 	// treat any 1D textures as 2D textures instead.
@@ -367,15 +368,21 @@ EXTERNOGLEXT(PFNGLDELETERENDERBUFFERSEXTPROC, glDeleteRenderbuffersEXT)
 
 // Assign the FBO attachments for the main geometry render
 #if defined(GL_VERSION_3_0) || defined(GL_ES_VERSION_3_0)
-	#define OGL_COLOROUT_ATTACHMENT_ID      GL_COLOR_ATTACHMENT0
-	#define OGL_WORKING_ATTACHMENT_ID       GL_COLOR_ATTACHMENT3
-	#define OGL_POLYID_ATTACHMENT_ID        GL_COLOR_ATTACHMENT1
-	#define OGL_FOGATTRIBUTES_ATTACHMENT_ID GL_COLOR_ATTACHMENT2
+	#define OGL_COLOROUT_ATTACHMENT_ID         GL_COLOR_ATTACHMENT0
+	#define OGL_WORKING_ATTACHMENT_ID          GL_COLOR_ATTACHMENT1
+	#define OGL_POLYID_ATTACHMENT_ID           GL_COLOR_ATTACHMENT2
+	#define OGL_FOGATTRIBUTES_ATTACHMENT_ID    GL_COLOR_ATTACHMENT3
+
+	#define OGL_CI_COLOROUT_ATTACHMENT_ID      GL_COLOR_ATTACHMENT0
+	#define OGL_CI_FOGATTRIBUTES_ATTACHMENT_ID GL_COLOR_ATTACHMENT1
 #else
-	#define OGL_COLOROUT_ATTACHMENT_ID      GL_COLOR_ATTACHMENT0_EXT
-	#define OGL_WORKING_ATTACHMENT_ID       GL_COLOR_ATTACHMENT3_EXT
-	#define OGL_POLYID_ATTACHMENT_ID        GL_COLOR_ATTACHMENT1_EXT
-	#define OGL_FOGATTRIBUTES_ATTACHMENT_ID GL_COLOR_ATTACHMENT2_EXT
+	#define OGL_COLOROUT_ATTACHMENT_ID         GL_COLOR_ATTACHMENT0_EXT
+	#define OGL_WORKING_ATTACHMENT_ID          GL_COLOR_ATTACHMENT1_EXT
+	#define OGL_POLYID_ATTACHMENT_ID           GL_COLOR_ATTACHMENT2_EXT
+	#define OGL_FOGATTRIBUTES_ATTACHMENT_ID    GL_COLOR_ATTACHMENT3_EXT
+
+	#define OGL_CI_COLOROUT_ATTACHMENT_ID      GL_COLOR_ATTACHMENT0_EXT
+	#define OGL_CI_FOGATTRIBUTES_ATTACHMENT_ID GL_COLOR_ATTACHMENT1_EXT
 #endif
 
 enum OpenGLVariantID
@@ -618,6 +625,9 @@ struct OGLRenderRef
 	GLuint texEdgeColorTableID;
 	GLuint texMSGColorID;
 	GLuint texMSGWorkingID;
+	GLuint texMSGDepthStencilID;
+	GLuint texMSGPolyID;
+	GLuint texMSGFogAttrID;
 	
 	GLuint rboMSGColorID;
 	GLuint rboMSGWorkingID;
@@ -627,9 +637,14 @@ struct OGLRenderRef
 	
 	GLuint fboClearImageID;
 	GLuint fboRenderID;
-	GLuint fboFramebufferFlipID;
+	GLuint fboRenderMutableID;
+	GLuint fboColorOutMainID;
+	GLuint fboColorOutWorkingID;
+	GLuint fboMSIntermediateColorOutMainID;
 	GLuint fboMSIntermediateRenderID;
+	GLuint fboMSIntermediateRenderMutableID;
 	GLuint selectedRenderingFBO;
+	GLuint selectedRenderingMutableFBO;
 	
 	// Shader states
 	GLuint vertexGeometryShaderID;
@@ -643,6 +658,10 @@ struct OGLRenderRef
 	GLuint vtxShaderMSGeometryZeroDstAlphaID;
 	GLuint fragShaderMSGeometryZeroDstAlphaID;
 	GLuint programMSGeometryZeroDstAlphaID;
+	
+	GLuint vertexMSEdgeMarkShaderID;
+	GLuint fragmentMSEdgeMarkShaderID;
+	GLuint programMSEdgeMarkID;
 	
 	GLuint vertexEdgeMarkShaderID;
 	GLuint vertexFogShaderID;
@@ -658,7 +677,6 @@ struct OGLRenderRef
 	GLint uniformStateEnableFogAlphaOnly;
 	GLint uniformStateClearPolyID;
 	GLint uniformStateClearDepth;
-	GLint uniformStateFogColor;
 	
 	GLint uniformStateAlphaTestRef[256];
 	GLint uniformPolyTexScale[256];
@@ -799,9 +817,9 @@ private:
 	unsigned int versionRevision;
 	
 private:
-	Render3DError _FlushFramebufferFlipAndConvertOnCPU(const Color4u8 *__restrict srcFramebuffer,
-													   Color4u8 *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16,
-													   bool doFramebufferFlip, bool doFramebufferConvert);
+	template<bool SWAP_RB> Render3DError _FlushFramebufferConvertOnCPU(const Color4u8 *__restrict srcFramebuffer,
+	                                                                   Color4u8 *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16,
+	                                                                   bool doFramebufferConvert);
 	
 protected:
 	// OpenGL-specific References
@@ -815,10 +833,10 @@ protected:
 	bool _isFBOBlitSupported;
 	bool isMultisampledFBOSupported;
 	bool isShaderSupported;
+	bool _isSampleShadingSupported;
 	bool isVAOSupported;
-	bool willFlipOnlyFramebufferOnGPU;
 	bool willFlipAndConvertFramebufferOnGPU;
-	bool willUsePerSampleZeroDstPass;
+	bool _willUseMultisampleShaders;
 	
 	bool _emulateShadowPolygon;
 	bool _emulateSpecialZeroAlphaBlending;
@@ -880,9 +898,9 @@ protected:
 	virtual void DestroyGeometryPrograms() = 0;
 	virtual Render3DError CreateGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyGeometryZeroDstAlphaProgram() = 0;
-	virtual Render3DError CreateEdgeMarkProgram(const char *vtxShaderCString, const char *fragShaderCString) = 0;
+	virtual Render3DError CreateEdgeMarkProgram(const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyEdgeMarkProgram() = 0;
-	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const char *vtxShaderCString, const char *fragShaderCString) = 0;
+	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyFogProgram(const OGLFogProgramKey fogProgramKey) = 0;
 	virtual void DestroyFogPrograms() = 0;
 	virtual Render3DError CreateFramebufferOutput6665Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString) = 0;
@@ -905,6 +923,7 @@ protected:
 	virtual Render3DError DisableVertexAttributes() = 0;
 	virtual void _ResolveWorkingBackFacing() = 0;
 	virtual void _ResolveGeometry() = 0;
+	virtual void _ResolveFinalFramebuffer() = 0;
 	virtual Render3DError ReadBackPixels() = 0;
 	
 	virtual Render3DError DrawShadowPolygon(const GLenum polyPrimitive, const GLsizei vertIndexCount, const GLushort *indexBufferPtr, const bool performDepthEqualTest, const bool enableAlphaDepthWrite, const bool isTranslucent, const u8 opaquePolyID) = 0;
@@ -955,9 +974,9 @@ protected:
 	virtual void DestroyGeometryPrograms();
 	virtual Render3DError CreateGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyGeometryZeroDstAlphaProgram();
-	virtual Render3DError CreateEdgeMarkProgram(const char *vtxShaderCString, const char *fragShaderCString);
+	virtual Render3DError CreateEdgeMarkProgram(const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyEdgeMarkProgram();
-	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const char *vtxShaderCString, const char *fragShaderCString);
+	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyFogProgram(const OGLFogProgramKey fogProgramKey);
 	virtual void DestroyFogPrograms();
 	virtual Render3DError CreateFramebufferOutput6665Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString);
@@ -981,6 +1000,7 @@ protected:
 	virtual Render3DError ZeroDstAlphaPass(const POLY *rawPolyList, const CPoly *clippedPolyList, const size_t clippedPolyCount, const size_t clippedPolyOpaqueCount, bool enableAlphaBlending, size_t indexOffset, POLYGON_ATTR lastPolyAttr);
 	virtual void _ResolveWorkingBackFacing();
 	virtual void _ResolveGeometry();
+	virtual void _ResolveFinalFramebuffer();
 	virtual Render3DError ReadBackPixels();
 	
 	// Base rendering methods
