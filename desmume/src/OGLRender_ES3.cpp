@@ -30,6 +30,21 @@
 #include "NDSSystem.h"
 
 
+static const GLenum GeometryDrawBuffersEnumES[8][4] = {
+	{ OGL_COLOROUT_ATTACHMENT_ID,                   GL_NONE,                  GL_NONE,                         GL_NONE },
+	{ OGL_COLOROUT_ATTACHMENT_ID,                   GL_NONE,                  GL_NONE, OGL_FOGATTRIBUTES_ATTACHMENT_ID },
+	{ OGL_COLOROUT_ATTACHMENT_ID,                   GL_NONE, OGL_POLYID_ATTACHMENT_ID,                         GL_NONE },
+	{ OGL_COLOROUT_ATTACHMENT_ID,                   GL_NONE, OGL_POLYID_ATTACHMENT_ID, OGL_FOGATTRIBUTES_ATTACHMENT_ID },
+	{ OGL_COLOROUT_ATTACHMENT_ID, OGL_WORKING_ATTACHMENT_ID,                  GL_NONE,                         GL_NONE },
+	{ OGL_COLOROUT_ATTACHMENT_ID, OGL_WORKING_ATTACHMENT_ID,                  GL_NONE, OGL_FOGATTRIBUTES_ATTACHMENT_ID },
+	{ OGL_COLOROUT_ATTACHMENT_ID, OGL_WORKING_ATTACHMENT_ID, OGL_POLYID_ATTACHMENT_ID,                         GL_NONE },
+	{ OGL_COLOROUT_ATTACHMENT_ID, OGL_WORKING_ATTACHMENT_ID, OGL_POLYID_ATTACHMENT_ID, OGL_FOGATTRIBUTES_ATTACHMENT_ID }
+};
+
+static const GLint GeometryAttachmentWorkingBufferES[8] = { 1,1,1,1,1,1,1,1 };
+static const GLint GeometryAttachmentPolyIDES[8]        = { 2,2,2,2,2,2,2,2 };
+static const GLint GeometryAttachmentFogAttributesES[8] = { 3,3,3,3,3,3,3,3 };
+
 // Vertex shader for geometry, GLSL ES 3.00
 static const char *GeometryVtxShader_ES300 = {"\
 IN_VTX_POSITION  vec4 inPosition;\n\
@@ -258,7 +273,17 @@ void OGLCreateRenderer_ES_3_0(OpenGLRenderer **rendererPtr)
 
 OpenGLESRenderer_3_0::OpenGLESRenderer_3_0()
 {
-	_variantID = OpenGLVariantID_ES_3_0;
+	_variantID = OpenGLVariantID_ES3_3_0;
+	
+	_geometryDrawBuffersEnum         = GeometryDrawBuffersEnumES;
+	_geometryAttachmentWorkingBuffer = GeometryAttachmentWorkingBufferES;
+	_geometryAttachmentPolyID        = GeometryAttachmentPolyIDES;
+	_geometryAttachmentFogAttributes = GeometryAttachmentFogAttributesES;
+	
+	ref->textureSrcTypeCIColor   = GL_UNSIGNED_BYTE;
+	ref->textureSrcTypeCIFog     = GL_UNSIGNED_BYTE;
+	ref->textureSrcTypeEdgeColor = GL_UNSIGNED_BYTE;
+	ref->textureSrcTypeToonTable = GL_UNSIGNED_BYTE;
 }
 
 Render3DError OpenGLESRenderer_3_0::InitExtensions()
@@ -342,11 +367,22 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 		return error;
 	}
 	
+	error = this->CreateClearImageProgram(ClearImageVtxShader_150, ClearImageFragShader_150);
+	if (error != OGLERROR_NOERR)
+	{
+		glUseProgram(0);
+		this->DestroyGeometryPrograms();
+		this->isShaderSupported = false;
+
+		return error;
+	}
+	
 	error = this->CreateGeometryZeroDstAlphaProgram(GeometryZeroDstAlphaPixelMaskVtxShader_150, GeometryZeroDstAlphaPixelMaskFragShader_150);
 	if (error != OGLERROR_NOERR)
 	{
 		glUseProgram(0);
 		this->DestroyGeometryPrograms();
+		this->DestroyClearImageProgram();
 		this->isShaderSupported = false;
 		
 		return error;
@@ -362,6 +398,7 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	{
 		glUseProgram(0);
 		this->DestroyGeometryPrograms();
+		this->DestroyClearImageProgram();
 		this->DestroyGeometryZeroDstAlphaProgram();
 		this->isShaderSupported = false;
 		
@@ -529,20 +566,10 @@ Render3DError OpenGLESRenderer_3_0::CreateGeometryPrograms()
 	for (size_t flagsValue = 0; flagsValue < 128; flagsValue++, programFlags.value++)
 	{
 		std::stringstream shaderFlags;
-		if (this->_isShaderFixedLocationSupported)
-		{
-			shaderFlags << "#define OUT_COLOR layout (location = 0) out\n";
-			shaderFlags << "#define OUT_WORKING_BUFFER layout (location = " << GeometryAttachmentWorkingBuffer[programFlags.DrawBuffersMode] << ") out\n";
-			shaderFlags << "#define OUT_POLY_ID layout (location = "        << GeometryAttachmentPolyID[programFlags.DrawBuffersMode]        << ") out\n";
-			shaderFlags << "#define OUT_FOG_ATTRIBUTES layout (location = " << GeometryAttachmentFogAttributes[programFlags.DrawBuffersMode] << ") out\n";
-		}
-		else
-		{
-			shaderFlags << "#define OUT_COLOR out\n";
-			shaderFlags << "#define OUT_WORKING_BUFFER out\n";
-			shaderFlags << "#define OUT_POLY_ID out\n";
-			shaderFlags << "#define OUT_FOG_ATTRIBUTES out\n";
-		}
+		shaderFlags << "#define OUT_COLOR layout (location = 0) out\n";
+		shaderFlags << "#define OUT_WORKING_BUFFER layout (location = " << (OGL_WORKING_ATTACHMENT_ID - GL_COLOR_ATTACHMENT0)       << ") out\n";
+		shaderFlags << "#define OUT_POLY_ID layout (location = "        << (OGL_POLYID_ATTACHMENT_ID - GL_COLOR_ATTACHMENT0)        << ") out\n";
+		shaderFlags << "#define OUT_FOG_ATTRIBUTES layout (location = " << (OGL_FOGATTRIBUTES_ATTACHMENT_ID - GL_COLOR_ATTACHMENT0) << ") out\n";
 		shaderFlags << "\n";
 		shaderFlags << "#define USE_TEXTURE_SMOOTHING " << ((this->_enableTextureSmoothing) ? 1 : 0) << "\n";
 		shaderFlags << "#define USE_NDS_DEPTH_CALCULATION " << ((this->_emulateNDSDepthCalculation) ? 1 : 0) << "\n";
@@ -619,6 +646,80 @@ Render3DError OpenGLESRenderer_3_0::CreateGeometryPrograms()
 		OGLRef.uniformPolyDepthOffset[flagsValue]         = glGetUniformLocation(OGLRef.programGeometryID[flagsValue], "polyDepthOffset");
 	}
 	
+	return error;
+}
+
+Render3DError OpenGLESRenderer_3_0::CreateClearImageProgram(const char *vsCString, const char *fsCString)
+{
+	Render3DError error = OGLERROR_NOERR;
+	OGLRenderRef &OGLRef = *this->ref;
+
+	std::stringstream shaderHeader;
+	shaderHeader << "#version 300 es\n";
+	shaderHeader << "precision highp float;\n";
+	shaderHeader << "precision highp int;\n";
+	shaderHeader << "\n";
+
+	std::stringstream vsHeader;
+	if (this->_isShaderFixedLocationSupported)
+	{
+		vsHeader << "#define IN_VTX_POSITION layout (location = "  << OGLVertexAttributeID_Position  << ") in\n";
+		vsHeader << "#define IN_VTX_TEXCOORD0 layout (location = " << OGLVertexAttributeID_TexCoord0 << ") in\n";
+	}
+	else
+	{
+		vsHeader << "#define IN_VTX_POSITION in\n";
+		vsHeader << "#define IN_VTX_TEXCOORD0 in\n";
+	}
+	vsHeader << "\n";
+
+	std::string vtxShaderCode  = shaderHeader.str() + vsHeader.str() + std::string(vsCString);
+	std::stringstream fsHeader;
+	if (this->_isShaderFixedLocationSupported)
+	{
+		fsHeader << "#define OUT_COLOR layout (location = 0) out\n";
+		fsHeader << "#define OUT_FOGATTR layout (location = 1) out\n";
+	}
+	else
+	{
+		fsHeader << "#define OUT_COLOR out\n";
+		fsHeader << "#define OUT_FOG_ATTRIBUTES out\n";
+	}
+	fsHeader << "\n";
+
+	std::string fragShaderCodeFogColor = shaderHeader.str() + fsHeader.str() + std::string(fsCString);
+	error = this->ShaderProgramCreate(OGLRef.vsClearImageID,
+									  OGLRef.fsClearImageID,
+									  OGLRef.pgClearImageID,
+									  vtxShaderCode.c_str(),
+									  fragShaderCodeFogColor.c_str());
+	if (error != OGLERROR_NOERR)
+	{
+		INFO("OpenGL ES: Failed to create the CLEAR_IMAGE shader program.\n");
+		glUseProgram(0);
+		this->DestroyClearImageProgram();
+		return error;
+	}
+
+	glLinkProgram(OGLRef.pgClearImageID);
+	if (!this->ValidateShaderProgramLink(OGLRef.pgClearImageID))
+	{
+		INFO("OpenGL ES: Failed to link the CLEAR_IMAGE shader color/fog program.\n");
+		glUseProgram(0);
+		this->DestroyClearImageProgram();
+		return OGLERROR_SHADER_CREATE_ERROR;
+	}
+
+	glValidateProgram(OGLRef.pgClearImageID);
+	glUseProgram(OGLRef.pgClearImageID);
+
+	const GLint uniformTexCIColor   = glGetUniformLocation(OGLRef.pgClearImageID, "texCIColor");
+	const GLint uniformTexCIFogAttr = glGetUniformLocation(OGLRef.pgClearImageID, "texCIFogAttr");
+	const GLint uniformTexCIDepthCF   = glGetUniformLocation(OGLRef.pgClearImageID, "texCIDepth");
+	glUniform1i(uniformTexCIColor, OGLTextureUnitID_CIColor);
+	glUniform1i(uniformTexCIFogAttr, OGLTextureUnitID_CIFogAttr);
+	glUniform1i(uniformTexCIDepthCF, OGLTextureUnitID_CIDepth);
+
 	return error;
 }
 
