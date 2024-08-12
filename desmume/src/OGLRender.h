@@ -27,29 +27,15 @@
 #include "render3D.h"
 #include "types.h"
 
+// The macros ENABLE_OPENGL_STANDARD and ENABLE_OPENGL_ES are used in client build configs.
+// If a client wants to use OpenGL, they must declare one of these two macros somewhere in
+// their build config or declare it in some precompiled header.
+
 // OPENGL PLATFORM-SPECIFIC INCLUDES
-#if defined(__ANGLE__) || defined(__ANDROID__)
-	#define OPENGL_VARIANT_ES
-	#define _NO_SDL_TYPES
-	#include <GLES3/gl3.h>
-	#define __gles2_gl2_h_ // Guard against including the gl2.h file.
-	#include <GLES2/gl2ext.h> // "gl3ext.h" is just a stub file. The real extension header is "gl2ext.h".
-
-	// Ignore dynamic linking
-	#define OGLEXT(procPtr, func)
-	#define INITOGLEXT(procPtr, func)
-	#define EXTERNOGLEXT(procPtr, func)
-#elif defined(__EMSCRIPTEN__)
-	#define OPENGL_VARIANT_ES
-	#include <SDL_opengl.h>
-	#include <emscripten/emscripten.h>
-
-	// Ignore dynamic linking
-	#define OGLEXT(procPtr, func)
-	#define INITOGLEXT(procPtr, func)
-	#define EXTERNOGLEXT(procPtr, func)
-#elif defined(_WIN32)
-	#define OPENGL_VARIANT_STANDARD
+#if defined(_WIN32)
+	#ifndef ENABLE_OPENGL_STANDARD
+		#define ENABLE_OPENGL_STANDARD // TODO: Declare this in the Visual Studio project file.
+	#endif
 	#define WIN32_LEAN_AND_MEAN
 	#include <windows.h>
 	#include <GL/gl.h>
@@ -63,15 +49,10 @@
 	#define INITOGLEXT(procPtr, func)   func = (procPtr)wglGetProcAddress(#func);
 	#define EXTERNOGLEXT(procPtr, func) extern procPtr func;
 #elif defined(__APPLE__)
-	#include <TargetConditionals.h>
-	
-	#if TARGET_OS_IPHONE
-		#define OPENGL_VARIANT_ES
+	#if defined(ENABLE_OPENGL_ES)
 		#include <OpenGLES/ES3/gl.h>
 		#include <OpenGLES/ES3/glext.h>
-	#else
-		#define OPENGL_VARIANT_STANDARD
-		
+	#elif defined(ENABLE_OPENGL_STANDARD)
 		#ifdef OGLRENDER_3_2_H
 			#include <OpenGL/gl3.h>
 			#include <OpenGL/gl3ext.h>
@@ -93,36 +74,46 @@
 	#define INITOGLEXT(procPtr, func)
 	#define EXTERNOGLEXT(procPtr, func)
 #else
-	#define OPENGL_VARIANT_STANDARD
-	#include <GL/gl.h>
-	#include <GL/glext.h>
-	#include <GL/glx.h>
+	#if defined(ENABLE_OPENGL_ES)
+		#include <GLES3/gl3.h>
+		#define __gles2_gl2_h_ // Guard against including the gl2.h file.
+		#include <GLES2/gl2ext.h> // "gl3ext.h" is just a stub file. The real extension header is "gl2ext.h".
 
-	#ifdef OGLRENDER_3_2_H
-		#include "utils/glcorearb.h"
-	#else
-		/* This is a workaround needed to compile against nvidia GL headers */
-		#ifndef GL_ALPHA_BLEND_EQUATION_ATI
-			#undef GL_VERSION_1_3
+		// Ignore dynamic linking
+		#define OGLEXT(procPtr, func)
+		#define INITOGLEXT(procPtr, func)
+		#define EXTERNOGLEXT(procPtr, func)
+	#elif defined(ENABLE_OPENGL_STANDARD)
+		#include <GL/gl.h>
+		#include <GL/glext.h>
+		#include <GL/glx.h>
+
+		#ifdef OGLRENDER_3_2_H
+			#include "utils/glcorearb.h"
+		#else
+			// This is a workaround needed to compile against nvidia GL headers
+			#ifndef GL_ALPHA_BLEND_EQUATION_ATI
+				#undef GL_VERSION_1_3
+			#endif
 		#endif
-	#endif
 
-	#define OGLEXT(procPtr, func)       procPtr func = NULL;
-	#define INITOGLEXT(procPtr, func)   func = (procPtr)glXGetProcAddress((const GLubyte *) #func);
-	#define EXTERNOGLEXT(procPtr, func) extern procPtr func;
+		#define OGLEXT(procPtr, func)       procPtr func = NULL;
+		#define INITOGLEXT(procPtr, func)   func = (procPtr)glXGetProcAddress((const GLubyte *) #func);
+		#define EXTERNOGLEXT(procPtr, func) extern procPtr func;
+	#endif
 #endif
 
 // Check minimum OpenGL header version
-#if defined(OPENGL_VARIANT_STANDARD)
-	#if !defined(GL_VERSION_2_1)
-		#error OpenGL requires v2.1 headers or later.
-	#endif
-#elif defined(OPENGL_VARIANT_ES)
+#if defined(ENABLE_OPENGL_ES)
 	#if !defined(GL_ES_VERSION_3_0)
 		#error OpenGL ES requires v3.0 headers or later.
 	#endif
+#elif defined(ENABLE_OPENGL_STANDARD)
+	#if !defined(GL_VERSION_2_1)
+		#error Standard OpenGL requires v2.1 headers or later.
+	#endif
 #else
-	#error Unknown OpenGL variant.
+	#error No OpenGL variant selected. You must declare ENABLE_OPENGL_STANDARD or ENABLE_OPENGL_ES in your build configuration.
 #endif
 
 // OPENGL LEGACY CORE FUNCTIONS
@@ -332,42 +323,7 @@ EXTERNOGLEXT(PFNGLDELETERENDERBUFFERSEXTPROC, glDeleteRenderbuffersEXT)
 	// modification. In other words, these are one-to-one drop-in replacements.
 	typedef GLclampf GLclampd;
 	#define glClearDepth(depth) glClearDepthf(depth)
-	
-	#ifdef OPENGL_VARIANT_ES
-	#define glDrawBuffer glDrawBufferES
-	static inline void glDrawBufferES(GLenum theAttachment)
-	{
-		GLenum bufs[4] = { GL_NONE, GL_NONE, GL_NONE, GL_NONE };
-		switch (theAttachment)
-		{
-			case GL_NONE:
-				glDrawBuffers(1, bufs);
-				return;
 
-			case GL_COLOR_ATTACHMENT0:
-			case GL_COLOR_ATTACHMENT1:
-			case GL_COLOR_ATTACHMENT2:
-			case GL_COLOR_ATTACHMENT3:
-			{
-				const GLsizei i = theAttachment - GL_COLOR_ATTACHMENT0;
-				bufs[i] = theAttachment;
-				glDrawBuffers(i+1, bufs);
-				return;
-			}
-
-			default:
-				return;
-		}
-	}
-	#else
-	#define glDrawBuffer glDrawBufferDESMUME
-	static inline void glDrawBufferDESMUME(GLenum theAttachment)
-	{
-		GLenum bufs[] = { theAttachment };
-		glDrawBuffers(1, bufs);
-	}
-	#endif
-	
 	// 1D textures may not exist for a particular OpenGL variant, so they will be promoted to
 	// 2D textures instead. Implementations need to modify their GLSL shaders accordingly to
 	// treat any 1D textures as 2D textures instead.
@@ -684,15 +640,9 @@ struct OGLRenderRef
 	
 	GLuint fboClearImageID;
 	GLuint fboRenderID;
-	GLuint fboRenderMutableID;
-	GLuint fboColorOutMainID;
-	GLuint fboColorOutWorkingID;
 	GLuint fboMSClearImageID;
-	GLuint fboMSIntermediateColorOutMainID;
 	GLuint fboMSIntermediateRenderID;
-	GLuint fboMSIntermediateRenderMutableID;
 	GLuint selectedRenderingFBO;
-	GLuint selectedRenderingMutableFBO;
 	
 	// Shader states
 	GLuint vertexGeometryShaderID;
@@ -723,8 +673,8 @@ struct OGLRenderRef
 	GLuint fragmentFramebufferRGBA6665OutputShaderID;
 	GLuint fragmentFramebufferRGBA8888OutputShaderID;
 	GLuint programEdgeMarkID;
-	GLuint programFramebufferRGBA6665OutputID[2];
-	GLuint programFramebufferRGBA8888OutputID[2];
+	GLuint programFramebufferRGBA6665OutputID;
+	GLuint programFramebufferRGBA8888OutputID;
 	
 	GLint uniformStateEnableFogAlphaOnly;
 	GLint uniformStateClearPolyID;
@@ -824,6 +774,41 @@ extern void (*OGLCreateRenderer_ES_3_0_Func)(OpenGLRenderer **rendererPtr);
 
 bool IsOpenGLDriverVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision);
 
+#define glDrawBuffer(theAttachment) glDrawBufferDESMUME((theAttachment), this->_variantID)
+static inline void glDrawBufferDESMUME(GLenum theAttachment, const OpenGLVariantID variantID)
+{
+	GLenum bufs[4] = { GL_NONE, GL_NONE, GL_NONE, GL_NONE };
+
+	if (variantID & OpenGLVariantFamily_ES)
+	{
+		switch (theAttachment)
+		{
+			case GL_NONE:
+				glDrawBuffers(1, bufs);
+				return;
+
+			case GL_COLOR_ATTACHMENT0_EXT:
+			case GL_COLOR_ATTACHMENT1_EXT:
+			case GL_COLOR_ATTACHMENT2_EXT:
+			case GL_COLOR_ATTACHMENT3_EXT:
+			{
+				const GLsizei i = theAttachment - GL_COLOR_ATTACHMENT0_EXT;
+				bufs[i] = theAttachment;
+				glDrawBuffers(i+1, bufs);
+				return;
+			}
+
+			default:
+				return;
+		}
+	}
+	else
+	{
+		bufs[0] = theAttachment;
+		glDrawBuffers(1, bufs);
+	}
+}
+
 class OpenGLTexture : public Render3DTexture
 {
 protected:
@@ -906,7 +891,6 @@ protected:
 	bool _needsZeroDstAlphaPass;
 	size_t _currentPolyIndex;
 	bool _enableAlphaBlending;
-	OGLTextureUnitID _lastTextureDrawTarget;
 	OGLGeometryFlags _geometryProgramFlags;
 	OGLFogProgramKey _fogProgramKey;
 	std::map<u32, OGLFogShaderID> _fogProgramMap;
@@ -961,9 +945,9 @@ protected:
 	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyFogProgram(const OGLFogProgramKey fogProgramKey) = 0;
 	virtual void DestroyFogPrograms() = 0;
-	virtual Render3DError CreateFramebufferOutput6665Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString) = 0;
+	virtual Render3DError CreateFramebufferOutput6665Program(const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyFramebufferOutput6665Programs() = 0;
-	virtual Render3DError CreateFramebufferOutput8888Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString) = 0;
+	virtual Render3DError CreateFramebufferOutput8888Program(const char *vtxShaderCString, const char *fragShaderCString) = 0;
 	virtual void DestroyFramebufferOutput8888Programs() = 0;
 	
 	virtual Render3DError InitFinalRenderStates(const std::set<std::string> *oglExtensionSet) = 0;
@@ -1039,9 +1023,9 @@ protected:
 	virtual Render3DError CreateFogProgram(const OGLFogProgramKey fogProgramKey, const bool isMultisample, const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyFogProgram(const OGLFogProgramKey fogProgramKey);
 	virtual void DestroyFogPrograms();
-	virtual Render3DError CreateFramebufferOutput6665Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString);
+	virtual Render3DError CreateFramebufferOutput6665Program(const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyFramebufferOutput6665Programs();
-	virtual Render3DError CreateFramebufferOutput8888Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString);
+	virtual Render3DError CreateFramebufferOutput8888Program(const char *vtxShaderCString, const char *fragShaderCString);
 	virtual void DestroyFramebufferOutput8888Programs();
 	
 	virtual Render3DError InitFinalRenderStates(const std::set<std::string> *oglExtensionSet);
@@ -1093,6 +1077,9 @@ public:
 
 class OpenGLRenderer_2_0 : public OpenGLRenderer_1_2
 {
+public:
+	OpenGLRenderer_2_0();
+	
 protected:
 	virtual Render3DError InitFinalRenderStates(const std::set<std::string> *oglExtensionSet);
 	
@@ -1100,15 +1087,12 @@ protected:
 	virtual Render3DError DisableVertexAttributes();
 	
 	virtual Render3DError BeginRender(const GFX3D_State &renderState, const GFX3D_GeometryList &renderGList);
-	
-	virtual Render3DError SetupTexture(const POLY &thePoly, size_t polyRenderIndex);
 };
 
 class OpenGLRenderer_2_1 : public OpenGLRenderer_2_0
 {
 public:
-	virtual Render3DError RenderFinish();
-	virtual Render3DError RenderFlush(bool willFlushBuffer32, bool willFlushBuffer16);
+	OpenGLRenderer_2_1();
 };
 
 #endif // OGLRENDER_H

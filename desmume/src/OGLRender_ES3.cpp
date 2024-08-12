@@ -315,7 +315,7 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUBOSize);
 	this->_is64kUBOSupported = (maxUBOSize >= 65536);
 	
-	// TBOs are only supported in ES 3.2.
+	// TBOs are only supported in OpenGL ES 3.2.
 	this->_isTBOSupported = IsOpenGLDriverVersionSupported(3, 2, 0);
 	
 	// Fixed locations in shaders are supported in ES 3.0 by default.
@@ -325,7 +325,7 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyOGL);
 	this->_deviceInfo.maxAnisotropy = (float)maxAnisotropyOGL;
 	
-	// OpenGL ES 3.0 needs to look up the best format and data type for glReadPixels.
+	// OpenGL ES 3.0 should be able to handle the GL_RGBA format in glReadPixels without any performance penalty.
 	OGLRef.readPixelsBestFormat = GL_RGBA;
 	OGLRef.readPixelsBestDataType = GL_UNSIGNED_BYTE;
 	
@@ -345,7 +345,7 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)this->_framebufferWidth, (GLsizei)this->_framebufferHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glActiveTexture(GL_TEXTURE0);
 	
-	// OpenGL ES v3.0 should have all the necessary features to be able to flip and convert the framebuffer.
+	// OpenGL ES 3.0 should have all the necessary features to be able to flip and convert the framebuffer.
 	this->willFlipAndConvertFramebufferOnGPU = true;
 	
 	this->_enableTextureSmoothing = CommonSettings.GFX3D_Renderer_TextureSmoothing;
@@ -408,13 +408,25 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	this->isVBOSupported = true;
 	this->CreateVBOs();
 	
-	this->isPBOSupported = true;
-	this->CreatePBOs();
+	// PBOs are only used when reading back the rendered framebuffer for the emulated
+	// BG0 layer. For desktop-class GPUs, doing an asynchronous glReadPixels() call
+	// is always advantageous since such devices are expected to have their GPUs
+	// connected to a data bus.
+	//
+	// However, many ARM-based mobile devices use integrated GPUs of varying degrees
+	// of memory latency and implementation quality. This means that the performance
+	// of an asynchronous glReadPixels() call is NOT guaranteed on such devices.
+	//
+	// In fact, many ARM-based devices suffer devastating performance drops when trying
+	// to do asynchronous framebuffer reads. Therefore, since most OpenGL ES users will
+	// be running an ARM-based iGPU, we will disable PBOs for OpenGL ES and stick with
+	// a traditional synchronous glReadPixels() call instead.
+	this->isPBOSupported = false;
 	
 	this->isVAOSupported = true;
 	this->CreateVAOs();
 	
-	// Load and create FBOs. Return on any error, since v3.2 Core Profile makes FBOs mandatory.
+	// Load and create FBOs. Return on any error, since OpenGL ES 3.0 includes FBOs as core functionality.
 	this->isFBOSupported = true;
 	error = this->CreateFBOs();
 	if (error != OGLERROR_NOERR)
@@ -932,7 +944,7 @@ Render3DError OpenGLESRenderer_3_0::CreateFogProgram(const OGLFogProgramKey fogP
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLESRenderer_3_0::CreateFramebufferOutput6665Program(const size_t outColorIndex, const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLESRenderer_3_0::CreateFramebufferOutput6665Program(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -957,14 +969,14 @@ Render3DError OpenGLESRenderer_3_0::CreateFramebufferOutput6665Program(const siz
 	vsHeader << "#define IN_VTX_COLOR layout (location = "     << OGLVertexAttributeID_Color     << ") in\n";
 	
 	std::stringstream fsHeader;
-	fsHeader << "#define OUT_COLOR layout (location = 0) out\n";
+	fsHeader << "#define OUT_COLOR layout (location = " << (OGL_WORKING_ATTACHMENT_ID - GL_COLOR_ATTACHMENT0) << ") out\n";
 	
 	std::string vtxShaderCode  = shaderHeader.str() + vsHeader.str() + std::string(vtxShaderCString);
 	std::string fragShaderCode = shaderHeader.str() + fsHeader.str() + std::string(fragShaderCString);
 	
 	error = this->ShaderProgramCreate(OGLRef.vertexFramebufferOutput6665ShaderID,
 									  OGLRef.fragmentFramebufferRGBA6665OutputShaderID,
-									  OGLRef.programFramebufferRGBA6665OutputID[outColorIndex],
+									  OGLRef.programFramebufferRGBA6665OutputID,
 									  vtxShaderCode.c_str(),
 									  fragShaderCode.c_str());
 	if (error != OGLERROR_NOERR)
@@ -975,8 +987,8 @@ Render3DError OpenGLESRenderer_3_0::CreateFramebufferOutput6665Program(const siz
 		return error;
 	}
 	
-	glLinkProgram(OGLRef.programFramebufferRGBA6665OutputID[outColorIndex]);
-	if (!this->ValidateShaderProgramLink(OGLRef.programFramebufferRGBA6665OutputID[outColorIndex]))
+	glLinkProgram(OGLRef.programFramebufferRGBA6665OutputID);
+	if (!this->ValidateShaderProgramLink(OGLRef.programFramebufferRGBA6665OutputID))
 	{
 		INFO("OpenGL ES: Failed to link the FRAMEBUFFER OUTPUT RGBA6665 shader program.\n");
 		glUseProgram(0);
@@ -984,18 +996,11 @@ Render3DError OpenGLESRenderer_3_0::CreateFramebufferOutput6665Program(const siz
 		return OGLERROR_SHADER_CREATE_ERROR;
 	}
 	
-	glValidateProgram(OGLRef.programFramebufferRGBA6665OutputID[outColorIndex]);
-	glUseProgram(OGLRef.programFramebufferRGBA6665OutputID[outColorIndex]);
+	glValidateProgram(OGLRef.programFramebufferRGBA6665OutputID);
+	glUseProgram(OGLRef.programFramebufferRGBA6665OutputID);
 	
-	const GLint uniformTexGColor = glGetUniformLocation(OGLRef.programFramebufferRGBA6665OutputID[outColorIndex], "texInFragColor");
-	if (outColorIndex == 0)
-	{
-		glUniform1i(uniformTexGColor, OGLTextureUnitID_FinalColor);
-	}
-	else
-	{
-		glUniform1i(uniformTexGColor, OGLTextureUnitID_GColor);
-	}
+	const GLint uniformTexGColor = glGetUniformLocation(OGLRef.programFramebufferRGBA6665OutputID, "texInFragColor");
+	glUniform1i(uniformTexGColor, OGLTextureUnitID_GColor);
 	
 	return OGLERROR_NOERR;
 }
