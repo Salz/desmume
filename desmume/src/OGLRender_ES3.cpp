@@ -108,7 +108,7 @@ void main()\n\
 	\n\
 	vtxTexCoord = (texScaleMtx * inTexCoord0) / 16.0;\n\
 	vtxColor = vec4(inColor / 63.0, polyAlpha);\n\
-	gl_Position = inPosition / 4096.0;\n\
+	gl_Position = vec4(inPosition.x, -inPosition.y, inPosition.z, inPosition.w) / 4096.0;\n\
 }\n\
 "};
 
@@ -346,7 +346,7 @@ Render3DError OpenGLESRenderer_3_0::InitExtensions()
 	glActiveTexture(GL_TEXTURE0);
 	
 	// OpenGL ES 3.0 should have all the necessary features to be able to flip and convert the framebuffer.
-	this->willFlipAndConvertFramebufferOnGPU = true;
+	this->_willConvertFramebufferOnGPU = true;
 	
 	this->_enableTextureSmoothing = CommonSettings.GFX3D_Renderer_TextureSmoothing;
 	this->_emulateShadowPolygon = CommonSettings.OpenGL_Emulation_ShadowPolygon;
